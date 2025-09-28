@@ -81,7 +81,7 @@ export default async function handler(
     
     try {
         const pageContent = await fetchPageContent(url);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
         
         const prompt = `
             Analysiere den folgenden Landing-Page-Text auf Basis bekannter Conversion-Killer.

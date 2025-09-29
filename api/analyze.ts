@@ -47,19 +47,21 @@ console.info("userRequests:", userRequests);
     if (userRequests >= 2) {
         //return res.status(429).json({ limitReached: true, message: 'Tageslimit von 2 Analysen erreicht.' });
     }
-
+console.info("Danach:"); 
     if (url.includes('luqy.studio')) {
         return res.status(200).json({ isSpecialCase: true, specialNote: "Natürlich eine 10/10 Landing Page ;)" });
     }
 
     const cacheKey = `cache:${url}`;
     const cachedResult = await kv.get<any>(cacheKey);
+console.info("For Cache:"); 
+/*
     if (cachedResult) {
         await kv.incr(rateLimitKey);
         await kv.expire(rateLimitKey, 86400);
         return res.status(200).json(cachedResult);
     }
-    
+  */  
     try {
         const pageContent = await fetchPageContent(url);
         

@@ -1,5 +1,5 @@
 // /api/analyze.ts
-// FINALE VERSION (Gemini-Engine v7.0) - Mit dynamischen Ergebnissen & Datenschutz
+// FINALE VERSION (Gemini-Engine v7.1) - Mit allen Anpassungen
 
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
@@ -46,7 +46,6 @@ export default async function handler(
         return res.status(200).json({ isSpecialCase: true, specialNote: "Natürlich eine 10/10 Landing Page ;)" });
     }
 
-    // Angepasstes Caching für 3 Tage
     const cacheKey = `cache:${url}`;
     const cachedResult = await kv.get<any>(cacheKey);
     if (cachedResult) {
@@ -56,7 +55,7 @@ export default async function handler(
     try {
         const pageContent = await fetchPageContent(url);
         
-        const prompt = `Analysiere den folgenden Landing-Page-Text auf Basis bekannter Conversion-Killer. Identifiziere die ZWEI gravierendsten Probleme. Gib mir die Gesamtzahl aller gefundenen Probleme zurück. Für die zwei Hauptprobleme, gib mir zusätzlich eine kurze, personalisierte Detailbeschreibung. Diese Beschreibung soll, wenn möglich, ein konkretes Beispiel oder Zitat von der Webseite enthalten. Wenn ein Element fehlt (z.B. Social Proof), dann erwähne das explizit. Beispiel für einen schwachen CTA: "Der CTA-Button mit dem Text 'Mehr erfahren' ist zu vage und erzeugt keinen Handlungsimpuls." Beispiel für fehlende Garantien: "Es gibt keine sichtbaren Garantien oder risikomindernde Elemente wie 'Geld-zurück-Garantie', was das Vertrauen der Nutzer schwächen kann." Der Text stammt von der URL: ${url} Seiteninhalt: "${pageContent}" Gib die Antwort NUR im folgenden JSON-Format aus, ohne zusätzlichen Text davor oder danach: { "totalKillers": <Gesamtzahl der gefundenen Probleme als Zahl>, "topKillers": [ { "title": "<Überschrift des 1. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 1>" }, { "title": "<Überschrift des 2. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 2>" } ] }`;
+        const prompt = `Analysiere den folgenden Landing-Page-Text auf Basis bekannter Conversion-Killer. Identifiziere die ZWEI gravierendsten Probleme. Gib mir die Gesamtzahl aller gefundenen Probleme zurück. Für die zwei Hauptprobleme, gib mir zusätzlich eine kurze, personalisierte Detailbeschreibung. Diese Beschreibung soll, wenn möglich, ein konkretes Beispiel oder Zitat von der Webseite enthalten. Wenn ein Element fehlt (z.B. Social Proof), dann erwähne das explizit. Der Stil der Detailbeschreibung soll leicht technisch, aber sehr verständlich sein und auf einen Satz begrenzt sein. Der Text stammt von der URL: ${url} Seiteninhalt: "${pageContent}" Gib die Antwort NUR im folgenden JSON-Format aus, ohne zusätzlichen Text davor oder danach: { "totalKillers": <Gesamtzahl der gefundenen Probleme als Zahl>, "topKillers": [ { "title": "<Überschrift des 1. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 1>" }, { "title": "<Überschrift des 2. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 2>" } ] }`;
 
         const requestBody = {
             contents: [{ parts: [{ text: prompt }] }],
@@ -78,13 +77,10 @@ export default async function handler(
         const responseText = responseData.candidates[0].content.parts[0].text;
         
         const jsonMatch = responseText.match(/{[\s\S]*}/);
-        if (!jsonMatch) {
-            throw new Error("Ungültiges JSON-Format von der API erhalten.");
-        }
+        if (!jsonMatch) { throw new Error("Ungültiges JSON-Format von der API erhalten."); }
         const cleanedJsonString = jsonMatch[0];
         const analysisResult = JSON.parse(cleanedJsonString);
         
-        // *** HIER IST DEINE NEUE, DYNAMISCHE LOGIK ***
         const totalKillers = analysisResult.totalKillers;
         
         if (totalKillers < 2) {
@@ -93,7 +89,7 @@ export default async function handler(
                 topKillers: [{ title: "Solide technische Basis", detail: "Die Seite scheint technisch gut aufgestellt zu sein." }, { title: "Gute Inhaltsstruktur", detail: "Die grundlegende Struktur der Inhalte ist klar." }],
                 remainingKillers: 0,
             };
-            await kv.set(cacheKey, positiveResult, { ex: 259200 }); // 3 Tage Caching
+            await kv.set(cacheKey, positiveResult, { ex: 259200 }); // 3 Tage
             return res.status(200).json(positiveResult);
         }
 
@@ -114,10 +110,8 @@ export default async function handler(
             remainingKillers: Math.max(0, totalKillers - topKillersToShow.length),
         };
 
-        // Speichern im Cache für 3 Tage
-        await kv.set(cacheKey, finalResult, { ex: 259200 });
+        await kv.set(cacheKey, finalResult, { ex: 259200 }); // 3 Tage
         
-        // Logging ohne IP-Adresse
         const logEntry = {
             timestamp: new Date().toISOString(),
             requestedUrl: url,

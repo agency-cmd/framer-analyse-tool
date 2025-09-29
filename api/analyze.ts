@@ -43,8 +43,9 @@ export default async function handler(
 
     const rateLimitKey = `rate-limit:${userIp}`;
     const userRequests = (await kv.get<number>(rateLimitKey)) || 0;
+console.info("userRequests:", userRequests); 
     if (userRequests >= 2) {
-        return res.status(429).json({ limitReached: true, message: 'Tageslimit von 2 Analysen erreicht.' });
+        //return res.status(429).json({ limitReached: true, message: 'Tageslimit von 2 Analysen erreicht.' });
     }
 
     if (url.includes('luqy.studio')) {

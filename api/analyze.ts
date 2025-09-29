@@ -91,10 +91,12 @@ console.info("pureJsonString:", pureJsonString);
         const analysisResult = JSON.parse(pureJsonString);
         const overallRating = analysisResult.result;
  console.info("analysisResult:", analysisResult);      
+        const overallRatingMessage =  `Auf der Landing Page von ${new URL(url).hostname} gibt es aktuell ${overallRating} Conversion-Killer. Darunter:`;
+ console.info("overallRatingMessage:", overallRatingMessage);      
         
         const finalResult = {
-            message: `Auf der Landing Page von ${new URL(url).hostname} gibt es aktuell ${overallRating} Conversion-Killer. Darunter:`,
-            topKillers: analysisResult.topKillers,
+            message: overallRatingMessage,
+            topKillers: overallRating,
             remainingKillers: Math.max(0, overallRating),
         };
         

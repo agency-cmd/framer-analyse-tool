@@ -1,13 +1,11 @@
 // /api/analyze.ts
-// FINALE VERSION (6.0) - Direkter Fetch-Aufruf an die Google API
+// FINALE VERSION (Gemini-Engine v7.0) - Mit dynamischen Ergebnissen & Datenschutz
 
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-//const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`;
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
 async function fetchPageContent(url: string): Promise<string> {
     try {
@@ -40,45 +38,36 @@ export default async function handler(
     let { url } = req.body;
     if (url && !url.startsWith('http')) { url = 'https://' + url; }
 
-    const userIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress) as string;
-
-    const rateLimitKey = `rate-limit:${userIp}`;
-    const userRequests = (await kv.get<number>(rateLimitKey)) || 0;
-console.info("userRequests:", userRequests); 
-    if (userRequests >= 2) {
-        //return res.status(429).json({ limitReached: true, message: 'Tageslimit von 2 Analysen erreicht.' });
+    if (!url || !url.includes('.')) {
+        return res.status(400).json({ message: 'Bitte gib eine gültige URL ein.' });
     }
-console.info("Danach:"); 
+
     if (url.includes('luqy.studio')) {
         return res.status(200).json({ isSpecialCase: true, specialNote: "Natürlich eine 10/10 Landing Page ;)" });
     }
 
+    // Angepasstes Caching für 3 Tage
     const cacheKey = `cache:${url}`;
     const cachedResult = await kv.get<any>(cacheKey);
-console.info("For Cache:"); 
-/*
     if (cachedResult) {
-        await kv.incr(rateLimitKey);
-        await kv.expire(rateLimitKey, 86400);
         return res.status(200).json(cachedResult);
     }
-  */  
+    
     try {
         const pageContent = await fetchPageContent(url);
         
-        //const prompt = `Analysiere den folgenden Landing-Page-Text auf Basis bekannter Conversion-Killer. Identifiziere die ZWEI gravierendsten Probleme. Gib mir die Gesamtzahl aller gefundenen Probleme zurück. Für die zwei Hauptprobleme, gib mir zusätzlich eine kurze, personalisierte Detailbeschreibung. Diese Beschreibung soll, wenn möglich, ein konkretes Beispiel oder Zitat von der Webseite enthalten. Wenn ein Element fehlt (z.B. Social Proof), dann erwähne das explizit. Beispiel für einen schwachen CTA: "Der CTA-Button mit dem Text 'Mehr erfahren' ist zu vage und erzeugt keinen Handlungsimpuls." Beispiel für fehlende Garantien: "Es gibt keine sichtbaren Garantien oder risikomindernde Elemente wie 'Geld-zurück-Garantie', was das Vertrauen der Nutzer schwächen kann." Der Text stammt von der URL: ${url} Seiteninhalt: "${pageContent}" Gib die Antwort NUR im folgenden JSON-Format aus, ohne zusätzlichen Text davor oder danach: { "totalKillers": <Gesamtzahl der gefundenen Probleme als Zahl>, "topKillers": [ { "title": "<Überschrift des 1. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 1>" }, { "title": "<Überschrift des 2. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 2>" } ] }`;
-        const prompt = `Von 1-10, wie professionell ist die Seite https://magile.at. Gib mir die Zahl im folgenden JSON Format zurück: {result: 3}. Gib die Antwort NUR im folgenden JSON-Format aus, ohne zusätzlichen Text davor oder danach.`;
-console.info("Promot:", prompt); 
+        const prompt = `Analysiere den folgenden Landing-Page-Text auf Basis bekannter Conversion-Killer. Identifiziere die ZWEI gravierendsten Probleme. Gib mir die Gesamtzahl aller gefundenen Probleme zurück. Für die zwei Hauptprobleme, gib mir zusätzlich eine kurze, personalisierte Detailbeschreibung. Diese Beschreibung soll, wenn möglich, ein konkretes Beispiel oder Zitat von der Webseite enthalten. Wenn ein Element fehlt (z.B. Social Proof), dann erwähne das explizit. Beispiel für einen schwachen CTA: "Der CTA-Button mit dem Text 'Mehr erfahren' ist zu vage und erzeugt keinen Handlungsimpuls." Beispiel für fehlende Garantien: "Es gibt keine sichtbaren Garantien oder risikomindernde Elemente wie 'Geld-zurück-Garantie', was das Vertrauen der Nutzer schwächen kann." Der Text stammt von der URL: ${url} Seiteninhalt: "${pageContent}" Gib die Antwort NUR im folgenden JSON-Format aus, ohne zusätzlichen Text davor oder danach: { "totalKillers": <Gesamtzahl der gefundenen Probleme als Zahl>, "topKillers": [ { "title": "<Überschrift des 1. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 1>" }, { "title": "<Überschrift des 2. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 2>" } ] }`;
+
         const requestBody = {
             contents: [{ parts: [{ text: prompt }] }],
         };
-console.info("requestBody:", requestBody); 
+
         const apiResponse = await fetch(GEMINI_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
         });
-console.info("Warte auf Response:"); 
+
         if (!apiResponse.ok) {
             const errorBody = await apiResponse.json();
             console.error("Fehler von Google API:", errorBody);
@@ -87,28 +76,54 @@ console.info("Warte auf Response:");
 
         const responseData = await apiResponse.json();
         const responseText = responseData.candidates[0].content.parts[0].text;
-console.info("Response:", responseText); 
-const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-const pureJsonString = jsonMatch ? jsonMatch[0] : "";
-console.info("pureJsonString:", pureJsonString); 
         
-        const analysisResult = JSON.parse(pureJsonString);
-        const overallRating = analysisResult.result;
- console.info("analysisResult:", analysisResult);      
-        const overallRatingMessage =  `Auf der Landing Page von ${new URL(url).hostname} gibt es aktuell ${overallRating} Conversion-Killer. Darunter:`;
- console.info("overallRatingMessage:", overallRatingMessage);      
+        const jsonMatch = responseText.match(/{[\s\S]*}/);
+        if (!jsonMatch) {
+            throw new Error("Ungültiges JSON-Format von der API erhalten.");
+        }
+        const cleanedJsonString = jsonMatch[0];
+        const analysisResult = JSON.parse(cleanedJsonString);
         
-        const finalResult = {
-            message: overallRatingMessage,
-            topKillers: overallRating,
-            remainingKillers: Math.max(0, overallRating),
-        };
+        // *** HIER IST DEINE NEUE, DYNAMISCHE LOGIK ***
+        const totalKillers = analysisResult.totalKillers;
         
-        await kv.set(cacheKey, finalResult, { ex: 259200 });
-        await kv.incr(rateLimitKey);
-        await kv.expire(rateLimitKey, 86400);
+        if (totalKillers < 2) {
+             const positiveResult = {
+                message: `Sehr gut! Auf ${new URL(url).hostname} wurden kaum Schwachstellen gefunden.`,
+                topKillers: [{ title: "Solide technische Basis", detail: "Die Seite scheint technisch gut aufgestellt zu sein." }, { title: "Gute Inhaltsstruktur", detail: "Die grundlegende Struktur der Inhalte ist klar." }],
+                remainingKillers: 0,
+            };
+            await kv.set(cacheKey, positiveResult, { ex: 259200 }); // 3 Tage Caching
+            return res.status(200).json(positiveResult);
+        }
 
-        const logEntry = { timestamp: new Date().toISOString(), requestedUrl: url, result: finalResult };
+        let topKillersToShow;
+        let messageText;
+
+        if (totalKillers < 5) { // 2, 3 oder 4 Killer
+            topKillersToShow = analysisResult.topKillers.slice(0, 1);
+            messageText = `Auf der Landing Page von ${new URL(url).hostname} gibt es aktuell ${totalKillers} potenzielle Conversion-Killer. Der wichtigste ist:`;
+        } else { // 5 oder mehr Killer
+            topKillersToShow = analysisResult.topKillers.slice(0, 2);
+            messageText = `Auf der Landing Page von ${new URL(url).hostname} gibt es aktuell ${totalKillers} potenzielle Conversion-Killer. Darunter:`;
+        }
+
+        const finalResult = {
+            message: messageText,
+            topKillers: topKillersToShow,
+            remainingKillers: Math.max(0, totalKillers - topKillersToShow.length),
+        };
+
+        // Speichern im Cache für 3 Tage
+        await kv.set(cacheKey, finalResult, { ex: 259200 });
+        
+        // Logging ohne IP-Adresse
+        const logEntry = {
+            timestamp: new Date().toISOString(),
+            requestedUrl: url,
+            foundKillersCount: totalKillers,
+            topKillers: finalResult.topKillers,
+        };
         await kv.set(`log:${Date.now()}:${url}`, JSON.stringify(logEntry));
         
         return res.status(200).json(finalResult);

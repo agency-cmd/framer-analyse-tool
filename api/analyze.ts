@@ -1,5 +1,5 @@
 // /api/analyze.ts
-// FINALE VERSION (Präzisions-Engine v1.2) - Personalisiert, ohne KI, mehr Checks
+// FINALE VERSION (Experten-Engine v1.3) - Maximal erweiterte Heuristiken
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
@@ -26,7 +26,6 @@ const runHeuristicChecks = (content: string, url: string): Killer[] => {
         if (text.length < 15 || text.toLowerCase().includes("willkommen")) {
             found.push({ title: "Schwaches Nutzenversprechen (H1)", detail: `Die Hauptüberschrift "${text}" ist möglicherweise zu kurz oder zu generisch, um den Kundennutzen klar zu kommunizieren.` });
         }
-        // Tiefen-Check - Ist die H1 weit unten?
         if (content.indexOf(h1Match[0]) > content.length * 0.4) {
              found.push({ title: "Nutzenversprechen nicht sofort sichtbar", detail: "Die Hauptüberschrift (H1) erscheint erst sehr weit unten auf der Seite und ist nicht 'above the fold' sichtbar." });
         }
@@ -40,9 +39,14 @@ const runHeuristicChecks = (content: string, url: string): Killer[] => {
     if (!/<meta[^>]+name=["']description["']/i.test(content)) {
         found.push({ title: "Fehlende Meta-Beschreibung", detail: "Die Meta-Beschreibung für Suchmaschinen fehlt. Eine riesige verpasste Chance, Nutzer zum Klicken zu animieren." });
     }
+    
+    // NEU: Geringer Informationsgehalt
+    if (cleanText(bodyContent).length < 300) {
+        found.push({ title: "Geringer Informationsgehalt (Thin Content)", detail: `Die Seite enthält mit ca. ${cleanText(bodyContent).split(' ').length} Wörtern sehr wenig Text. Dies kann auf inhaltliche Schwächen hindeuten.` });
+    }
 
     // --- GRUPPE: HANDLUNGSAUFFORDERUNG (CTA) ---
-    const buttonMatch = bodyContent.match(/<button[^>]*>(.*?)<\/button>/ig); // 'g' flag to find all buttons
+    const buttonMatch = bodyContent.match(/<button[^>]*>(.*?)<\/button>/ig);
     if (!buttonMatch || buttonMatch.length === 0) {
         found.push({ title: "Fehlender Call-to-Action Button", detail: "Es wurde kein primärer <button>-Tag gefunden. Ein klarer Call-to-Action ist entscheidend für die Conversion." });
     } else {
@@ -53,6 +57,11 @@ const runHeuristicChecks = (content: string, url: string): Killer[] => {
         if (genericCTAs.length > 0) {
             found.push({ title: "Generische Call-to-Action Texte", detail: `Mindestens ein Button verwendet einen generischen Text wie "${cleanText(genericCTAs[0])}". Nutzenorientierte Texte sind oft effektiver.` });
         }
+    }
+    
+    // NEU: Fehlender Handlungsimpuls
+    if (!/jetzt|sofort|angebot|nur für kurze zeit|zeitlich begrenzt/i.test(bodyContent)) {
+         found.push({ title: "Fehlender Handlungsimpuls", detail: "Es wurden keine Dringlichkeit erzeugenden Wörter (z.B. 'Jetzt', 'Angebot endet') gefunden, die den Nutzer zum sofortigen Handeln motivieren." });
     }
 
     // --- GRUPPE: VERTRAUEN & GLAUBWÜRDIGKEIT ---
@@ -77,7 +86,12 @@ const runHeuristicChecks = (content: string, url: string): Killer[] => {
     if (!/kundenstimmen|bewertungen|referenzen|erfahrungen/i.test(bodyContent)) {
         found.push({ title: "Fehlender sozialer Beweis", detail: "Es wurden keine Schlüsselwörter für sozialen Beweis (wie 'Kundenstimmen', 'Bewertungen') gefunden, was das Vertrauen beeinträchtigen kann." });
     }
-    
+
+    // NEU: Fehlende Garantien
+    if (!/garantie|risikofrei|geld-zurück|kostenlos testen/i.test(bodyContent)) {
+        found.push({ title: "Fehlende Garantien", detail: "Es wurden keine risikomindernden Elemente (z.B. 'Geld-zurück-Garantie') gefunden, die Kauf- oder Kontakthürden abbauen." });
+    }
+
     // --- GRUPPE: FORMULARE & INTERAKTION ---
     const inputCount = (content.match(/<input/g) || []).length;
     if (inputCount > 6) {
@@ -90,13 +104,19 @@ const runHeuristicChecks = (content: string, url: string): Killer[] => {
 
     const fontFamilies = new Set(content.match(/font-family:\s*([^;\}]+)/g));
     if (fontFamilies.size > 4) {
-        found.push({ title: "Visuelle Unruhe durch zu viele Schriftarten", detail: `Es wurden ${fontFamilies.size} verschiedene Schriftarten-Definitionen gefunden. Mehr als 2-3 können unprofessionell und unruhig wirken.` });
+        found.push({ title: "Visuelle Unruhe durch Schriftarten", detail: `Es wurden ${fontFamilies.size} verschiedene Schriftarten-Definitionen gefunden. Mehr als 2-3 können unprofessionell wirken.` });
+    }
+    
+    // NEU: Unübersichtliche Navigation
+    const navLinks = (content.match(/<nav[^>]*>.*?(<a)/g) || []).length;
+    if (navLinks > 10) {
+        found.push({ title: "Überladene Navigation", detail: `Die Navigation enthält mit ${navLinks} Links sehr viele Optionen, was die Nutzerführung erschweren kann.` });
     }
 
     return found;
 };
 
-// --- PAGESPEED-CHECKS (Der technische Prüfer) ---
+// --- PAGESPEED-CHECKS (Der technische Prüfer) - PRÄZISIERT ---
 const runPageSpeedChecks = async (url: string): Promise<Killer[]> => {
     const found: Killer[] = [];
     const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${PAGESPEED_API_KEY}&strategy=mobile&category=performance&category=accessibility&category=best-practices`;
@@ -108,31 +128,28 @@ const runPageSpeedChecks = async (url: string): Promise<Killer[]> => {
         const lighthouse = data.lighthouseResult;
         const audits = lighthouse.audits;
 
-        // Performance
         const perfScore = lighthouse.categories.performance.score * 100;
-        if (perfScore < 50) {
-            found.push({ title: "Langsame Ladezeiten", detail: `Die mobile Performance ist mit einem Score von ${Math.round(perfScore)}/100 kritisch. Langsame Seiten führen zu hohen Absprungraten.` });
-        } else if (perfScore < 90) {
-            found.push({ title: "Mäßige Ladezeiten", detail: `Die mobile Performance ist mit ${Math.round(perfScore)}/100 verbesserungswürdig. Schnellere Ladezeiten verbessern die Nutzererfahrung deutlich.` });
+        // PRÄZISIERTE REGEL: Nur Scores unter 90 sind ein Killer.
+        if (perfScore < 90) {
+            const detailText = perfScore < 50 
+                ? `Die mobile Performance ist mit einem Score von ${Math.round(perfScore)}/100 kritisch und muss dringend verbessert werden.`
+                : `Die mobile Performance ist mit ${Math.round(perfScore)}/100 mäßig. Eine Optimierung auf über 90 wird empfohlen.`;
+            found.push({ title: "Verbesserungswürdige Ladezeit", detail: detailText });
         }
 
-        // Responsivität / Viewport
         if (audits['viewport']?.score !== 1) {
              found.push({ title: "Mangelnde Mobiloptimierung", detail: "Der wichtige 'viewport'-Meta-Tag fehlt oder ist fehlerhaft. Dies führt zu einer schlechten Darstellung auf Smartphones." });
         }
         
-        // Accessibility (Barrierefreiheit)
         const accessScore = lighthouse.categories.accessibility.score * 100;
-        if (accessScore < 80) {
-            found.push({ title: "Mangelnde Barrierefreiheit", detail: `Der Accessibility-Score ist mit ${Math.round(accessScore)}/100 niedrig. Probleme wie zu geringe Kontraste schließen Nutzer aus.` });
+        if (accessScore < 90) { // Schwelle erhöht
+            found.push({ title: "Mangelnde Barrierefreiheit", detail: `Der Accessibility-Score ist mit ${Math.round(accessScore)}/100 nicht optimal. Probleme wie zu geringe Kontraste schließen Nutzer aus.` });
         }
         
-        // Fehlende Bildbeschreibungen
         if (audits['image-alt']?.score !== 1) {
             found.push({ title: "Fehlende Bildbeschreibungen (Alt-Texte)", detail: "Wichtigen Bildern fehlen Alternativtexte. Das schadet der Barrierefreiheit (Screenreader) und SEO." });
         }
         
-        // Nicht optimierte Bilder
         if (audits['uses-optimized-images']?.score !== 1 && audits['uses-optimized-images']?.details?.overallSavingsBytes > 50000) {
              found.push({ title: "Nicht optimierte Bilder", detail: "Die Bilder auf der Seite sind nicht optimal komprimiert und verlangsamen die Ladezeit unnötig." });
         }
@@ -164,6 +181,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     try {
+        // Wir führen beide Analysen parallel aus, um Zeit zu sparen
         const rawContentPromise = fetch(url).then(r => {
             if (!r.ok) throw new Error("Seite nicht erreichbar.");
             return r.text();

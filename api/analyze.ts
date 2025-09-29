@@ -1,5 +1,5 @@
 // /api/analyze.ts
-// FINALE VERSION (Erweiterte Hybrid-Engine v1.1) - Personalisiert, ohne KI
+// FINALE VERSION (Präzisions-Engine v1.2) - Personalisiert, ohne KI, mehr Checks
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
@@ -15,15 +15,20 @@ type Killer = {
 const runHeuristicChecks = (content: string, url: string): Killer[] => {
     const found: Killer[] = [];
     const cleanText = (text: string) => text.trim().replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
+    const bodyContent = content.match(/<body[^>]*>(.*?)<\/body>/is)?.[1] || content;
 
     // --- GRUPPE: INHALT & STRUKTUR ---
-    const h1Match = content.match(/<h1[^>]*>(.*?)<\/h1>/i);
+    const h1Match = bodyContent.match(/<h1[^>]*>(.*?)<\/h1>/i);
     if (!h1Match || !h1Match[1]) {
         found.push({ title: "Fehlendes Nutzenversprechen (H1)", detail: "Auf der Seite fehlt eine klare H1-Überschrift, um den Hauptnutzen auf den ersten Blick zu verdeutlichen." });
     } else {
         const text = cleanText(h1Match[1]);
         if (text.length < 15 || text.toLowerCase().includes("willkommen")) {
             found.push({ title: "Schwaches Nutzenversprechen (H1)", detail: `Die Hauptüberschrift "${text}" ist möglicherweise zu kurz oder zu generisch, um den Kundennutzen klar zu kommunizieren.` });
+        }
+        // Tiefen-Check - Ist die H1 weit unten?
+        if (content.indexOf(h1Match[0]) > content.length * 0.4) {
+             found.push({ title: "Nutzenversprechen nicht sofort sichtbar", detail: "Die Hauptüberschrift (H1) erscheint erst sehr weit unten auf der Seite und ist nicht 'above the fold' sichtbar." });
         }
     }
 
@@ -37,7 +42,7 @@ const runHeuristicChecks = (content: string, url: string): Killer[] => {
     }
 
     // --- GRUPPE: HANDLUNGSAUFFORDERUNG (CTA) ---
-    const buttonMatch = content.match(/<button[^>]*>(.*?)<\/button>/ig); // 'g' flag to find all buttons
+    const buttonMatch = bodyContent.match(/<button[^>]*>(.*?)<\/button>/ig); // 'g' flag to find all buttons
     if (!buttonMatch || buttonMatch.length === 0) {
         found.push({ title: "Fehlender Call-to-Action Button", detail: "Es wurde kein primärer <button>-Tag gefunden. Ein klarer Call-to-Action ist entscheidend für die Conversion." });
     } else {
@@ -55,20 +60,21 @@ const runHeuristicChecks = (content: string, url: string): Killer[] => {
         found.push({ title: "Unsichere Verbindung (Kein SSL)", detail: "Die Webseite wird nicht über eine sichere HTTPS-Verbindung ausgeliefert, was Browser oft als unsicher markieren." });
     }
 
-    if (!/impressum/i.test(content)) {
+    if (!/impressum/i.test(bodyContent)) {
         found.push({ title: "Fehlendes Impressum", detail: "Es wurde kein Link oder Hinweis auf ein Impressum gefunden, was in der DACH-Region rechtlich erforderlich ist und Vertrauen schafft." });
     }
     
-    if (!/datenschutz|privacy/i.test(content)) {
+    if (!/datenschutz|privacy/i.test(bodyContent)) {
         found.push({ title: "Fehlende Datenschutzerklärung", detail: "Ein Link zur Datenschutzerklärung ist nach DSGVO Pflicht und ein wichtiges Vertrauenssignal für Besucher." });
     }
 
-    const yearMatch = content.match(/©\s*(\d{4})/);
-    if (yearMatch && parseInt(yearMatch[1]) < new Date().getFullYear()) {
-        found.push({ title: "Veraltetes Copyright-Jahr", detail: `Das Copyright-Jahr "${yearMatch[1]}" ist nicht aktuell. Dies kann signalisieren, dass die Seite nicht mehr aktiv gepflegt wird.` });
+    const yearMatch = bodyContent.match(/©\s*(\d{4})/);
+    const currentYear = new Date().getFullYear();
+    if (yearMatch && parseInt(yearMatch[1]) < currentYear) {
+        found.push({ title: "Veraltetes Copyright-Jahr", detail: `Das Copyright-Jahr "${yearMatch[1]}" ist nicht aktuell (aktuelles Jahr: ${currentYear}). Dies kann signalisieren, dass die Seite nicht mehr aktiv gepflegt wird.` });
     }
     
-    if (!/kundenstimmen|bewertungen|referenzen|erfahrungen/i.test(content)) {
+    if (!/kundenstimmen|bewertungen|referenzen|erfahrungen/i.test(bodyContent)) {
         found.push({ title: "Fehlender sozialer Beweis", detail: "Es wurden keine Schlüsselwörter für sozialen Beweis (wie 'Kundenstimmen', 'Bewertungen') gefunden, was das Vertrauen beeinträchtigen kann." });
     }
     
@@ -82,19 +88,25 @@ const runHeuristicChecks = (content: string, url: string): Killer[] => {
         found.push({ title: "Automatisch startende Medien", detail: "Mindestens ein Video oder Audio-Element startet automatisch, was von vielen Nutzern als störend empfunden wird." });
     }
 
+    const fontFamilies = new Set(content.match(/font-family:\s*([^;\}]+)/g));
+    if (fontFamilies.size > 4) {
+        found.push({ title: "Visuelle Unruhe durch zu viele Schriftarten", detail: `Es wurden ${fontFamilies.size} verschiedene Schriftarten-Definitionen gefunden. Mehr als 2-3 können unprofessionell und unruhig wirken.` });
+    }
+
     return found;
 };
 
 // --- PAGESPEED-CHECKS (Der technische Prüfer) ---
 const runPageSpeedChecks = async (url: string): Promise<Killer[]> => {
     const found: Killer[] = [];
-    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${PAGESPEED_API_KEY}&strategy=mobile&category=performance&category=accessibility`;
+    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${PAGESPEED_API_KEY}&strategy=mobile&category=performance&category=accessibility&category=best-practices`;
 
     try {
         const response = await fetch(apiUrl);
         if (!response.ok) return found;
         const data = await response.json();
         const lighthouse = data.lighthouseResult;
+        const audits = lighthouse.audits;
 
         // Performance
         const perfScore = lighthouse.categories.performance.score * 100;
@@ -105,14 +117,24 @@ const runPageSpeedChecks = async (url: string): Promise<Killer[]> => {
         }
 
         // Responsivität / Viewport
-        if (lighthouse.audits['viewport'].score !== 1) {
+        if (audits['viewport']?.score !== 1) {
              found.push({ title: "Mangelnde Mobiloptimierung", detail: "Der wichtige 'viewport'-Meta-Tag fehlt oder ist fehlerhaft. Dies führt zu einer schlechten Darstellung auf Smartphones." });
         }
         
         // Accessibility (Barrierefreiheit)
         const accessScore = lighthouse.categories.accessibility.score * 100;
         if (accessScore < 80) {
-            found.push({ title: "Mangelnde Barrierefreiheit", detail: `Der Accessibility-Score ist mit ${Math.round(accessScore)}/100 niedrig. Probleme wie zu geringe Kontraste oder fehlende Bildbeschreibungen schließen Nutzer aus.` });
+            found.push({ title: "Mangelnde Barrierefreiheit", detail: `Der Accessibility-Score ist mit ${Math.round(accessScore)}/100 niedrig. Probleme wie zu geringe Kontraste schließen Nutzer aus.` });
+        }
+        
+        // Fehlende Bildbeschreibungen
+        if (audits['image-alt']?.score !== 1) {
+            found.push({ title: "Fehlende Bildbeschreibungen (Alt-Texte)", detail: "Wichtigen Bildern fehlen Alternativtexte. Das schadet der Barrierefreiheit (Screenreader) und SEO." });
+        }
+        
+        // Nicht optimierte Bilder
+        if (audits['uses-optimized-images']?.score !== 1 && audits['uses-optimized-images']?.details?.overallSavingsBytes > 50000) {
+             found.push({ title: "Nicht optimierte Bilder", detail: "Die Bilder auf der Seite sind nicht optimal komprimiert und verlangsamen die Ladezeit unnötig." });
         }
 
         return found;

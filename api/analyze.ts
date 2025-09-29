@@ -64,17 +64,17 @@ export default async function handler(
         
         //const prompt = `Analysiere den folgenden Landing-Page-Text auf Basis bekannter Conversion-Killer. Identifiziere die ZWEI gravierendsten Probleme. Gib mir die Gesamtzahl aller gefundenen Probleme zurück. Für die zwei Hauptprobleme, gib mir zusätzlich eine kurze, personalisierte Detailbeschreibung. Diese Beschreibung soll, wenn möglich, ein konkretes Beispiel oder Zitat von der Webseite enthalten. Wenn ein Element fehlt (z.B. Social Proof), dann erwähne das explizit. Beispiel für einen schwachen CTA: "Der CTA-Button mit dem Text 'Mehr erfahren' ist zu vage und erzeugt keinen Handlungsimpuls." Beispiel für fehlende Garantien: "Es gibt keine sichtbaren Garantien oder risikomindernde Elemente wie 'Geld-zurück-Garantie', was das Vertrauen der Nutzer schwächen kann." Der Text stammt von der URL: ${url} Seiteninhalt: "${pageContent}" Gib die Antwort NUR im folgenden JSON-Format aus, ohne zusätzlichen Text davor oder danach: { "totalKillers": <Gesamtzahl der gefundenen Probleme als Zahl>, "topKillers": [ { "title": "<Überschrift des 1. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 1>" }, { "title": "<Überschrift des 2. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 2>" } ] }`;
         const prompt = `Von 1-10, wie professionell ist die Seite https://magile.at. Gib mir die Zahl im folgenden JSON Format zurück: {result: 3}`;
-
+console.info("Promot:", prompt); 
         const requestBody = {
             contents: [{ parts: [{ text: prompt }] }],
         };
-
+console.info("requestBody:", requestBody); 
         const apiResponse = await fetch(GEMINI_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
         });
-
+console.info("Warte auf Response:"); 
         if (!apiResponse.ok) {
             const errorBody = await apiResponse.json();
             console.error("Fehler von Google API:", errorBody);

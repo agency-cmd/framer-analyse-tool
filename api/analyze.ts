@@ -1,5 +1,5 @@
 // /api/analyze.ts
-// FINALE VERSION (Experten-Engine v3.1) - Mit dynamischer Ergebnis-Anzeige
+// FINALE VERSION (Experten-Engine v3.2) - Mit angepassten 70/100 Schwellenwerten
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
@@ -136,10 +136,11 @@ const runPageSpeedChecks = async (url: string): Promise<Killer[]> => {
         const audits = lighthouse.audits;
 
         const perfScore = lighthouse.categories.performance.score * 100;
-        if (perfScore < 90) {
+        // ***ANGEPASSTE REGEL: Schwelle bei 70 statt 90***
+        if (perfScore < 70) {
             const detailText = perfScore < 50 
                 ? `Die mobile Performance ist mit einem Score von ${Math.round(perfScore)}/100 kritisch und eine der größten Conversion-Bremsen.`
-                : `Die mobile Performance ist mit ${Math.round(perfScore)}/100 mäßig. Eine Optimierung auf über 90 wird dringend empfohlen.`;
+                : `Die mobile Performance ist mit ${Math.round(perfScore)}/100 mäßig. Eine Optimierung auf über 70 wird dringend empfohlen.`;
             found.push({ title: "Verbesserungswürdige Ladezeit", detail: detailText });
         }
 
@@ -148,8 +149,9 @@ const runPageSpeedChecks = async (url: string): Promise<Killer[]> => {
         }
         
         const accessScore = lighthouse.categories.accessibility.score * 100;
-        if (accessScore < 90) {
-            found.push({ title: "Mangelnde Barrierefreiheit", detail: `Der Accessibility-Score ist mit ${Math.round(accessScore)}/100 nicht optimal. Probleme wie zu geringe Kontraste schließen Nutzer aus.` });
+        // ***ANGEPASSTE REGEL: Schwelle bei 70 statt 90***
+        if (accessScore < 70) {
+            found.push({ title: "Mangelnde Barrierefreiheit", detail: `Der Accessibility-Score ist mit ${Math.round(accessScore)}/100 niedrig. Probleme wie zu geringe Kontraste oder fehlende Bildbeschreibungen schließen Nutzer aus.` });
         }
         
         if (audits['image-alt']?.score !== 1) {
@@ -199,7 +201,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         const allKillers = [...pageSpeedKillers, ...heuristicKillers];
 
-        // *** HIER IST DIE NEUE, ANGEPASSTE LOGIK ***
         if (allKillers.length < 2) {
              return res.status(200).json({
                 message: `Sehr gut! Auf ${new URL(url).hostname} wurden kaum Schwachstellen gefunden.`,
@@ -212,11 +213,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         let messageText;
 
         if (allKillers.length < 5) {
-            // WENIGER ALS 5 KILLER: Zeige nur den Top 1 Killer
             topKillersToShow = allKillers.slice(0, 1);
             messageText = `Auf der Landing Page von ${new URL(url).hostname} gibt es aktuell ${allKillers.length} potenzielle Conversion-Killer. Der wichtigste ist:`
         } else {
-            // 5 ODER MEHR KILLER: Zeige die Top 2 Killer
             topKillersToShow = allKillers.slice(0, 2);
             messageText = `Auf der Landing Page von ${new URL(url).hostname} gibt es aktuell ${allKillers.length} potenzielle Conversion-Killer. Darunter:`
         }

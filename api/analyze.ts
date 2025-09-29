@@ -84,12 +84,11 @@ console.info("Warte auf Response:");
         const responseData = await apiResponse.json();
         const responseText = responseData.candidates[0].content.parts[0].text;
 console.info("Response:", responseText); 
-console.log("--- DEBUG START ---");
-console.log("Typ der Variable:", typeof responseText);
-console.log("Inhalt der Variable:", responseText);
-console.log("--- DEBUG END ---");
+const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+const pureJsonString = jsonMatch ? jsonMatch[0] : "";
+console.info("pureJsonString:", pureJsonString); 
         
-        const analysisResult = JSON.parse(responseText);
+        const analysisResult = JSON.parse(pureJsonString);
  console.info("analysisResult:", analysisResult);        
         const finalResult = {
             message: `Auf der Landing Page von ${new URL(url).hostname} gibt es aktuell ${analysisResult.totalKillers} Conversion-Killer. Darunter:`,

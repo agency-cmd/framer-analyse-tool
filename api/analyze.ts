@@ -89,11 +89,13 @@ const pureJsonString = jsonMatch ? jsonMatch[0] : "";
 console.info("pureJsonString:", pureJsonString); 
         
         const analysisResult = JSON.parse(pureJsonString);
- console.info("analysisResult:", analysisResult);        
+        const overallRating = analysisResult.result;
+ console.info("analysisResult:", analysisResult);      
+        
         const finalResult = {
-            message: `Auf der Landing Page von ${new URL(url).hostname} gibt es aktuell ${analysisResult.totalKillers} Conversion-Killer. Darunter:`,
+            message: `Auf der Landing Page von ${new URL(url).hostname} gibt es aktuell ${overallRating} Conversion-Killer. Darunter:`,
             topKillers: analysisResult.topKillers,
-            remainingKillers: Math.max(0, analysisResult.totalKillers - 2),
+            remainingKillers: Math.max(0, overallRating),
         };
         
         await kv.set(cacheKey, finalResult, { ex: 259200 });

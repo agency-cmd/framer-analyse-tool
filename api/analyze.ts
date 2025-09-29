@@ -1,11 +1,10 @@
 // /api/analyze.ts
-// FINALE VERSION (v4.1) - Enthält ALLE Fixes inkl. vollständiger CORS-Header
+// FINALE VERSION (5.0) - Korrekter Modellname und alle Fixes
 
 import { NextApiRequest, NextApiResponse } from 'next';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { kv } from '@vercel/kv';
 
-// --- Konfiguration & Helper ---
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
 
@@ -29,7 +28,6 @@ export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse
 ) {
-    // --- VOLLSTÄNDIGER CORS-HEADER FIX ---
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -38,7 +36,6 @@ export default async function handler(
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
-    // --- ENDE FIX ---
 
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Nur POST-Anfragen erlaubt.' });
@@ -51,7 +48,6 @@ export default async function handler(
 
     const userIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress) as string;
 
-    // Fair-Use-Limit
     const rateLimitKey = `rate-limit:${userIp}`;
     const userRequests = (await kv.get<number>(rateLimitKey)) || 0;
 
@@ -62,7 +58,6 @@ export default async function handler(
         });
     }
 
-    // luqy.studio Sonderfall
     if (url.includes('luqy.studio')) {
         return res.status(200).json({ 
             isSpecialCase: true,
@@ -70,7 +65,6 @@ export default async function handler(
         });
     }
 
-    // Caching für 3 Tage
     const cacheKey = `cache:${url}`;
     const cachedResult = await kv.get<any>(cacheKey);
     if (cachedResult) {
@@ -81,7 +75,7 @@ export default async function handler(
     
     try {
         const pageContent = await fetchPageContent(url);
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" }); // KORREKTER MODELLNAME
         
         const prompt = `
             Analysiere den folgenden Landing-Page-Text auf Basis bekannter Conversion-Killer.
@@ -118,9 +112,9 @@ export default async function handler(
             remainingKillers: Math.max(0, analysisResult.totalKillers - 2),
         };
         
-        await kv.set(cacheKey, finalResult, { ex: 259200 }); // 3 Tage
+        await kv.set(cacheKey, finalResult, { ex: 259200 });
         await kv.incr(rateLimitKey);
-        await kv.expire(rateLimitKey, 86400); // 24 Stunden
+        await kv.expire(rateLimitKey, 86400);
 
         const logEntry = { timestamp: new Date().toISOString(), requestedUrl: url, result: finalResult };
         await kv.set(`log:${Date.now()}:${url}`, JSON.stringify(logEntry));

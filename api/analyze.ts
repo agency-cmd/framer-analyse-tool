@@ -1,5 +1,5 @@
 // /api/analyze.ts
-// FINALE VERSION (Gemini-Engine v7.1) - Mit allen Anpassungen
+// FINALE VERSION (Gemini-Engine v7.2) - Mit ultra-prägnantem Prompt
 
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
@@ -55,7 +55,42 @@ export default async function handler(
     try {
         const pageContent = await fetchPageContent(url);
         
-        const prompt = `Analysiere den folgenden Landing-Page-Text auf Basis bekannter Conversion-Killer. Identifiziere die ZWEI gravierendsten Probleme. Gib mir die Gesamtzahl aller gefundenen Probleme zurück. Für die zwei Hauptprobleme, gib mir zusätzlich eine kurze, personalisierte Detailbeschreibung. Diese Beschreibung soll, wenn möglich, ein konkretes Beispiel oder Zitat von der Webseite enthalten. Wenn ein Element fehlt (z.B. Social Proof), dann erwähne das explizit. Der Stil der Detailbeschreibung soll leicht technisch, aber sehr verständlich sein und auf einen Satz begrenzt sein. Der Text stammt von der URL: ${url} Seiteninhalt: "${pageContent}" Gib die Antwort NUR im folgenden JSON-Format aus, ohne zusätzlichen Text davor oder danach: { "totalKillers": <Gesamtzahl der gefundenen Probleme als Zahl>, "topKillers": [ { "title": "<Überschrift des 1. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 1>" }, { "title": "<Überschrift des 2. Problems>", "detail": "<Personalisierte Detailbeschreibung für Problem 2>" } ] }`;
+        // --- NEUER, STARK EINGESCHRÄNKTER PROMPT ---
+        const prompt = `
+            Du bist ein erfahrener Conversion-Optimierer. Analysiere den Seiteninhalt von der URL: ${url}.
+
+            Deine Analyse muss folgende Regeln strikt befolgen:
+            - Regel 1: Die Detailbeschreibung für jeden gefundenen Conversion-Killer darf **maximal 15 Wörter** lang sein.
+            - Regel 2: Die Beschreibung **muss immer** ein kurzes, direktes Zitat oder einen Messwert von der Webseite enthalten.
+            - Regel 3: Der Ton ist leicht technisch, aber für Laien verständlich.
+
+            GUTE BEISPIELE (kurz, personalisiert, technisch):
+            - "Der H1-Text 'Willkommen' ist zu generisch und kommuniziert keinen klaren Kundennutzen."
+            - "Ein Performance-Score von 45/100 deutet auf lange Ladezeiten und hohe Absprungraten hin."
+            - "Dem CTA-Button 'Mehr erfahren' fehlt ein starkes, handlungsorientiertes Verb."
+            
+            SCHLECHTES BEISPIEL (zu lang):
+            - "Der einzige implizite CTA 'Persönliche Termine nach telefonischer Vereinbarung oder per Email' ist passiv formuliert, am Ende der Seite versteckt und bietet keine direkte Handlungsaufforderung, um Nutzer aktiv zur Kontaktaufnahme zu bewegen."
+
+            AUFGABE: Identifiziere die ZWEI gravierendsten Probleme und gib die Gesamtzahl aller gefundenen Probleme zurück.
+            
+            Seiteninhalt: "${pageContent}"
+
+            Gib die Antwort NUR im folgenden JSON-Format aus, ohne zusätzlichen Text davor oder danach:
+            {
+              "totalKillers": <Gesamtzahl der gefundenen Probleme als Zahl>,
+              "topKillers": [
+                {
+                  "title": "<Überschrift des 1. Problems>",
+                  "detail": "<Personalisierte Detailbeschreibung für Problem 1 (max. 15 Wörter)>"
+                },
+                {
+                  "title": "<Überschrift des 2. Problems>",
+                  "detail": "<Personalisierte Detailbeschreibung für Problem 2 (max. 15 Wörter)>"
+                }
+              ]
+            }
+        `;
 
         const requestBody = {
             contents: [{ parts: [{ text: prompt }] }],
@@ -110,7 +145,7 @@ export default async function handler(
             remainingKillers: Math.max(0, totalKillers - topKillersToShow.length),
         };
 
-        await kv.set(cacheKey, finalResult, { ex: 259200 }); // 3 Tage
+        await kv.set(cacheKey, finalResult, { ex: 259200 });
         
         const logEntry = {
             timestamp: new Date().toISOString(),

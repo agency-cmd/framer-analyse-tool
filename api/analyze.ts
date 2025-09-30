@@ -1,4 +1,4 @@
-// /api/analyze.ts - v3.2 mit korrigiertem Browserless.io Body
+// /api/analyze.ts - v3.3 mit aktualisierter 11-Punkte-Checkliste
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 import * as cheerio from 'cheerio';
@@ -10,7 +10,7 @@ const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 if (!GEMINI_API_KEY || !BROWSERLESS_API_KEY) {
     throw new Error("Erforderliche Umgebungsvariablen (GEMINI_API_KEY, BROWSERLESS_API_KEY) sind nicht gesetzt.");
 }
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
 // --- DATENERFASSUNG (MIT KORREKTEM BROWSERLESS.IO PAYLOAD) ---
 async function getCleanedPageContent(url: string): Promise<string> {
@@ -23,12 +23,9 @@ async function getCleanedPageContent(url: string): Promise<string> {
                 'Cache-Control': 'no-cache',
                 'Content-Type': 'application/json',
             },
-            // --- START DER ÄNDERUNG ---
-            // Die Zeile "waitFor: 2000" wurde entfernt, da sie nicht mehr unterstützt wird.
             body: JSON.stringify({
                 url: url,
             }),
-            // --- ENDE DER ÄNDERUNG ---
         });
 
         if (!response.ok) {
@@ -51,7 +48,7 @@ async function getCleanedPageContent(url: string): Promise<string> {
     }
 }
 
-// --- API-HANDLER (unverändert) ---
+// --- API-HANDLER ---
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -78,10 +75,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (url.includes('luqy.studio')) {
-        return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist schon eine 10/10. 😉 Bereit für deine eigene?" });
+        return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
     }
 
-    const cacheKey = `cro-analysis-v3.2:${url}`; // Version im Key erhöht
+    const cacheKey = `cro-analysis-v3.3:${url}`; // Version im Key erhöht
     try {
         const cachedResult = await kv.get<any>(cacheKey);
         if (cachedResult) {
@@ -94,22 +91,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         const pageContent = await getCleanedPageContent(url);
         
+        // --- START DER ÄNDERUNG: AKTUALISIERTER PROMPT ---
         const prompt = `
             Du bist ein Weltklasse Conversion-Optimierer und Berater.
             Deine Aufgabe ist es, einen HTML-Auszug zu analysieren und die Ergebnisse für einen Laien (z.B. einen Geschäftsführer) verständlich aufzubereiten.
             Vermeide Fachjargon und erkläre die Probleme so, dass der Geschäftsnutzen klar wird.
 
-            ANALYSE-CHECKLISTE:
-            1.  **Lange Ladezeit:** Gibt es Hinweise auf eine langsame Seite?
-            2.  **Unklar für Mobilgeräte:** Könnte die Seite auf dem Handy schlecht aussehen?
-            3.  **Unklare Botschaft:** Versteht ein Besucher in 3 Sekunden, was er hier bekommt?
-            4.  **Schwache Handlungsaufforderung:** Sind die Buttons klar und motivierend beschriftet?
-            5.  **Störende Pop-ups:** Gibt es Hinweise auf Elemente, die den Inhalt sofort verdecken?
-            6.  **Fehlendes Vertrauen:** Fehlen Kundenstimmen, Siegel oder klare Kontaktinfos?
-            7.  **Komplizierte Formulare:** Muss man zu viele Felder ausfüllen?
-            8.  **Schlechte Lesbarkeit:** Ist der Text anstrengend zu lesen (z.B. zu klein, zu lang)?
-            9.  **Technische Fehler:** Gibt es Hinweise auf kaputte Bilder oder Links?
-            10. **Verwirrende Botschaft:** Passen Werbeanzeige und Seiteninhalt zusammen?
+            ANALYSE-CHECKLISTE (NEUE VERSION, NACH WICHTIGKEIT GEORDNET):
+            1.  **Langsame Ladezeit:** Suche nach Indikatoren für eine langsame Seite (viele Skripte, unoptimierte Bilder).
+            2.  **Fehlende mobile Optimierung:** Prüfe auf fehlende Viewport-Tags oder starre Layouts.
+            3.  **Unklare Value Proposition:** Ist die H1-Überschrift spezifisch und nutzerorientiert oder vage wie "Willkommen"?
+            4.  **"Message Match"-Fehler:** Vergleiche den Seitentitel (<title>) mit der Hauptüberschrift (<h1>). Gibt es eine klare Diskrepanz?
+            5.  **Schwacher Call-to-Action (CTA):** Sind Button-Texte passiv (z.B. "Mehr erfahren") statt aktiv (z.B. "Jetzt starten")?
+            6.  **Offensichtliche technische Fehler:** Suche nach Hinweisen auf kaputte Bilder oder fehlerhafte Links.
+            7.  **Fehlende Vertrauenssignale:** Fehlen Keywords wie "Kundenstimmen", "Garantie", "Sicher", "Zertifikat" oder Links zu Datenschutz/Impressum?
+            8.  **Zu viele Ablenkungen:** Gibt es zu viele Links (Social Media, Blog, "Über uns"), die vom Hauptziel ablenken?
+            9.  **Komplexes Formular:** Analysiere <form>-Elemente. Werden mehr als 4-5 Informationen für einen einfachen Lead abgefragt?
+            10. **Schlechte Lesbarkeit:** Gibt es lange Textblöcke ohne Absätze, zu kleine Schrift oder schlechte Kontraste?
+            11. **Aufdringliche Pop-ups:** Gibt es Hinweise auf Overlays, die den Inhalt sofort bei Seitenaufruf verdecken?
 
             DEINE AUFGABE:
             1.  Identifiziere ALLE zutreffenden Probleme aus der Checkliste.
@@ -120,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             REGELN FÜR DIE ANTWORT:
             - Die Titel müssen das Problem aus Nutzersicht beschreiben (z.B. "Besucher fühlen sich unsicher").
             - Die Detailbeschreibung muss das Problem erklären, ein Zitat von der Seite enthalten UND den negativen Effekt auf Nutzer hervorheben.
-            - Die Detailbeschreibung darf MAXIMAL 15 Wörter lang sein.
+            - Die Detailbeschreibung darf MAXIMAL 25 Wörter lang sein.
             - Deine Antwort muss AUSSCHLIESSLICH ein JSON-Objekt sein, ohne Markdown.
 
             HTML-AUSZUG ZUR ANALYSE:
@@ -143,6 +142,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               ]
             }
         `;
+        // --- ENDE DER ÄNDERUNG ---
 
         const apiResponse = await fetch(GEMINI_API_URL, {
             method: 'POST',

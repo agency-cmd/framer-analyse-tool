@@ -1,21 +1,24 @@
-// /api/analyze.ts - v3 mit Browserless.io für SPA-Rendering
+// /api/analyze.ts - v3.1 mit korrigiertem Browserless.io Endpoint
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 import * as cheerio from 'cheerio';
 
 // --- UMWELTSVARIABLEN ---
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY; // NEU
+const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 
 if (!GEMINI_API_KEY || !BROWSERLESS_API_KEY) {
     throw new Error("Erforderliche Umgebungsvariablen (GEMINI_API_KEY, BROWSERLESS_API_KEY) sind nicht gesetzt.");
 }
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-// --- DATENERFASSUNG (JETZT MIT BROWSERLESS.IO) ---
+// --- DATENERFASSUNG (JETZT MIT KORREKTEM BROWSERLESS.IO ENDPOINT) ---
 async function getCleanedPageContent(url: string): Promise<string> {
     try {
-        const browserlessUrl = `https://chrome.browserless.io/content?token=${BROWSERLESS_API_KEY}`;
+        // --- START DER ÄNDERUNG ---
+        // Die alte URL 'https://chrome.browserless.io/content' wurde durch die neue ersetzt.
+        const browserlessUrl = `https://production-sfo.browserless.io/content?token=${BROWSERLESS_API_KEY}`;
+        // --- ENDE DER ÄNDERUNG ---
 
         const response = await fetch(browserlessUrl, {
             method: 'POST',
@@ -25,7 +28,7 @@ async function getCleanedPageContent(url: string): Promise<string> {
             },
             body: JSON.stringify({
                 url: url,
-                waitFor: 2000, // Gib der Seite 2 Sekunden Zeit, um alle Skripte zu laden
+                waitFor: 2000,
             }),
         });
 
@@ -49,9 +52,8 @@ async function getCleanedPageContent(url: string): Promise<string> {
     }
 }
 
-// --- API-HANDLER (unverändert, außer der aufgerufenen Funktion) ---
+// --- API-HANDLER (unverändert) ---
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    // CORS Header
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -63,7 +65,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(405).json({ message: 'Methode nicht erlaubt. Nur POST-Anfragen sind zulässig.' });
     }
 
-    // Input Validierung
     let { url } = req.body;
     if (typeof url !== 'string' || url.trim() === '') {
         return res.status(400).json({ message: 'Bitte gib eine URL ein.' });
@@ -77,13 +78,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ message: 'Das Format der URL ist ungültig.' });
     }
 
-    // Sonderfall
     if (url.includes('luqy.studio')) {
         return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
     }
 
-    // Caching
-    const cacheKey = `cro-analysis-v3:${url}`; // Version im Key erhöht
+    const cacheKey = `cro-analysis-v3.1:${url}`; // Version im Key erhöht
     try {
         const cachedResult = await kv.get<any>(cacheKey);
         if (cachedResult) {
@@ -94,11 +93,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        // HIER IST DIE MAGIE: getCleanedPageContent nutzt jetzt Browserless
         const pageContent = await getCleanedPageContent(url);
         
         const prompt = `
-            Du bist ein Weltklasse Conversion-Optimierer und Berater.
+            Du bist ein Weltklasse Conversion-Optimierter und Berater.
             Deine Aufgabe ist es, einen HTML-Auszug zu analysieren und die Ergebnisse für einen Laien (z.B. einen Geschäftsführer) verständlich aufzubereiten.
             Vermeide Fachjargon und erkläre die Probleme so, dass der Geschäftsnutzen klar wird.
 

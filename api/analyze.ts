@@ -1,4 +1,4 @@
-// /api/analyze.ts - v3.5 mit intelligenter Vorverarbeitung für mehr Geschwindigkeit
+// /api/analyze.ts - v4.0 mit Fokus auf maximale Qualität durch Audit-Prompt
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 import * as cheerio from 'cheerio';
@@ -8,30 +8,36 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 
 if (!GEMINI_API_KEY || !BROWSERLESS_API_KEY) {
-    throw new Error("Erforderliche Umgebungsvariablen (GEMINI_API_KEY, BROWSERLESS_API_KEY) sind nicht gesetzt.");
+    throw new Error("Erforderliche Umgebungsvariablen sind nicht gesetzt.");
 }
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-// --- DATENERFASSUNG (unverändert) ---
-async function getFullPageHtml(url: string): Promise<string> {
+// --- DATENERFASSUNG (Zurück zum bereinigten, aber vollständigen HTML) ---
+async function getCleanedPageContent(url: string): Promise<string> {
     try {
         const browserlessUrl = `https://production-sfo.browserless.io/content?token=${BROWSERLESS_API_KEY}`;
         const response = await fetch(browserlessUrl, {
             method: 'POST',
-            headers: {
-                'Cache-Control': 'no-cache',
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: url }),
         });
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`Browserless API Fehler! Status: ${response.status}. Details: ${errorText}`);
         }
-        return await response.text();
+        const html = await response.text();
+        const $ = cheerio.load(html);
+
+        // Wir entfernen nur noch Skripte und Styles, behalten aber die gesamte sichtbare Struktur.
+        $('script, style, noscript, svg').remove();
+        const bodyHtml = $('body').html() || '';
+        const condensedHtml = bodyHtml.replace(/\s+/g, ' ').trim();
+        
+        return condensedHtml.substring(0, 25000); // Leicht erhöhtes Limit für mehr Kontext
+
     } catch (error) {
         console.error(`Fehler beim Abrufen der URL ${url} via Browserless:`, error);
-        throw new Error("Die Webseite konnte nicht vollständig geladen werden. Möglicherweise ist sie sehr langsam oder blockiert Analysen.");
+        throw new Error("Die Webseite konnte nicht vollständig geladen werden.");
     }
 }
 
@@ -53,72 +59,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
     }
 
-    const cacheKey = `cro-analysis-v3.5:${url}`;
+    const cacheKey = `cro-analysis-v4.0:${url}`;
     try {
         const cachedResult = await kv.get<any>(cacheKey);
         if (cachedResult) { return res.status(200).json(cachedResult); }
     } catch (error) { console.error("Vercel KV Cache-Fehler (Lesen):", error); }
 
     try {
-        const fullHtml = await getFullPageHtml(url);
-        const $ = cheerio.load(fullHtml);
-
-        // --- START: INTELLIGENTE VORVERARBEITUNG ---
-        // Statt rohem HTML erstellen wir eine strukturierte Zusammenfassung.
-        const pageSummary = `
-          SEITENTITEL: "${$('title').text().trim()}"
-          
-          META-VIEWPORT: "${$('meta[name="viewport"]').attr('content') || 'Nicht vorhanden'}"
-
-          HAUPTÜBERSCHRIFT (H1): "${$('h1').first().text().trim()}"
-          
-          WEITERE ÜBERSCHRIFTEN (H2):
-          ${$('h2').map((_, el) => `- "${$(el).text().trim()}"`).get().join('\n')}
-
-          BUTTONS & CALL-TO-ACTIONS:
-          ${$('button, a[role="button"], .button, .btn').map((_, el) => `- TEXT: "${$(el).text().trim()}" TAG: <${el.tagName}>`).get().slice(0, 10).join('\n')}
-          
-          FORMULARFELDER (${$('form input, form textarea, form select').length} gefunden):
-          ${$('form').map((_, form) => {
-              const inputs = $(form).find('input, textarea, select');
-              return `FORMULAR: ${inputs.length} Felder. Labels: ${inputs.map((_, input) => `"${$('label[for="' + $(input).attr('id') + '"]').text().trim()}"`).get().join(', ')}`;
-          }).get().join('\n')}
-          
-          LINKS/NAVIGATION (${$('a').length} gefunden, erste 15):
-          ${$('a').map((_, el) => `- TEXT: "${$(el).text().trim()}"`).get().slice(0, 15).join('\n')}
-
-          AUSGEWÄHLTE TEXTABSCHNITTE:
-          ${$('p').map((_, el) => $(el).text().trim()).get().filter(text => text.length > 50).slice(0, 5).join('\n\n')}
-        `.replace(/\s+/g, ' ').trim();
-        // --- ENDE: INTELLIGENTE VORVERARBEITUNG ---
-
+        const pageContent = await getCleanedPageContent(url);
+        
+        // --- START: NEUER AUDIT-PROMPT FÜR MAXIMALE QUALITÄT ---
         const prompt = `
-            Du bist ein Weltklasse Conversion-Optimierer. Analysiere die folgende strukturierte Zusammenfassung einer Webseite.
-            
-            ANALYSE-CHECKLISTE:
-            1.  **Langsame Ladezeit:** Nicht direkt messbar, aber deuten viele Links/Elemente auf eine schwere Seite hin?
-            2.  **Fehlende mobile Optimierung:** Ist der META-VIEWPORT-Tag vorhanden und korrekt konfiguriert?
-            3.  **Unklare Value Proposition:** Ist die HAUPTÜBERSCHRIFT (H1) spezifisch und nutzerorientiert?
-            4.  **"Message Match"-Fehler:** Gibt es eine Diskrepanz zwischen SEITENTITEL und HAUPTÜBERSCHRIFT?
-            5.  **Schwacher Call-to-Action (CTA):** Sind die BUTTONS & CALL-TO-ACTIONS aktiv und klar formuliert?
-            6.  **Offensichtliche technische Fehler:** Gibt es Links oder Buttons ohne Text?
-            7.  **Fehlende Vertrauenssignale:** Enthalten die TEXTABSCHNITTE Keywords wie "Kunden", "Garantie", "sicher"?
-            8.  **Zu viele Ablenkungen:** Gibt es eine hohe Anzahl an LINKS/NAVIGATION im Verhältnis zu den CTAs?
-            9.  **Komplexes Formular:** Haben die FORMULARFELDER mehr als 4-5 Einträge für einen einfachen Zweck?
-            10. **Schlechte Lesbarkeit:** Sind die TEXTABSCHNITTE sehr lang und unformatiert?
-            11. **Aufdringliche Pop-ups:** Nicht direkt erkennbar, aber deuten Button-Texte wie "Schließen" darauf hin?
+            Du bist ein Weltklasse Conversion-Optimierer. Deine Aufgabe ist es, den folgenden HTML-Code einer Webseite wie ein menschlicher Auditor zu prüfen.
+            Du musst aktiv nach Problemen suchen und insbesondere das Fehlen von wichtigen Elementen als kritischen Fehler bewerten.
 
-            DEINE AUFGABE & REGELN sind unverändert:
-            - Identifiziere ALLE Probleme, zähle sie und wähle die TOP 2.
+            DEIN PRÜFAUFTRAG (Checkliste nach Wichtigkeit):
+            1.  **Unklare Value Proposition:** Finde das \`<h1>\`-Element. Ist sein Text vage, voller Jargon oder erklärt er keinen klaren Nutzen für den Kunden? (z.B. "Willkommen" oder "Das neue Agile"). Wenn ja, ist das ein Killer.
+            2.  **Schwacher oder fehlender Call-to-Action (CTA):** Durchsuche den Code nach prominenten Buttons (\`<button>\`, \`<a>\` mit Button-Klassen). Gibt es im oberen Seitenbereich einen klaren, aktiven Handlungsaufruf (z.B. "Jetzt starten")? Wenn gar kein klarer CTA zu finden ist, ist das ein SEHR KRITISCHER Killer. Passive Texte wie "Mehr erfahren" sind ebenfalls ein Killer.
+            3.  **Fehlende Vertrauenssignale:** Durchsuche den gesamten Text. Findest du Wörter wie "Kundenstimmen", "Bewertungen", "Partner", "Garantie", "Zertifikat"? Gibt es \`<img>\`-Tags, die auf Kundenlogos hindeuten? Wenn solche Signale komplett fehlen, ist das ein schwerwiegender Killer.
+            4.  **Zu viele Ablenkungen:** Gibt es ein \`<nav>\`-Element mit vielen Links (z.B. mehr als 3-4)? Gibt es Links zu Social Media oder zum "Blog"? Wenn ja, lenken diese vom Hauptziel ab und sind ein Killer.
+            5.  **Fehlende mobile Optimierung:** Gibt es ein \`<meta name="viewport">\`-Tag? Wenn es fehlt, ist die Seite wahrscheinlich nicht für Mobilgeräte optimiert. Das ist ein Killer.
+            6.  **"Message Match"-Fehler:** Finde das \`<title>\`-Tag. Weicht der Titel stark von der Botschaft des \`<h1>\`-Tags ab? Wenn ja, ist das ein Killer.
+            7.  **Komplexes Formular:** Wenn du ein \`<form>\`-Element findest, zähle die \`<input>\`-Felder. Sind es mehr als 4-5? Dann ist das ein Killer.
+            8.  Weitere Killer wie **technische Fehler** (leere Links), **schlechte Lesbarkeit** (sehr lange \`<p>\`-Tags ohne Formatierung) oder **aufdringliche Pop-ups** (Texte wie "Angebot nicht verpassen") solltest du ebenfalls identifizieren.
+
+            DEINE AUFGABE & REGELN:
+            - Führe den Prüfauftrag aus. Identifiziere ALLE zutreffenden Probleme.
+            - Zähle die Gesamtzahl und wähle die TOP 2 gravierendsten aus.
             - Titel aus Nutzersicht.
-            - Detailbeschreibung (max. 25 Wörter) muss das Problem erklären, ein Zitat/Wert aus der Zusammenfassung enthalten und den negativen Effekt aufzeigen.
+            - Detailbeschreibung (max. 25 Wörter) muss das Problem erklären, ein Zitat/Beispiel aus dem Code enthalten und den negativen Effekt aufzeigen. Zitiere auch, wenn etwas fehlt (z.B. "Es wurde kein primärer CTA-Button gefunden.").
             - Antwort nur als JSON.
 
-            STRUKTURIERTE ZUSAMMENFASSUNG ZUR ANALYSE:
-            \`\`\`
-            ${pageSummary}
+            ZU PRÜFENDER HTML-CODE:
+            \`\`\`html
+            ${pageContent}
             \`\`\`
         `;
+        // --- ENDE: NEUER AUDIT-PROMPT ---
         
         const apiResponse = await fetch(GEMINI_API_URL, {
             method: 'POST',

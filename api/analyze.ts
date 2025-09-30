@@ -90,52 +90,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // --- HAUPTLOGIK: ANALYSE ---
         const pageContent = await getCleanedPageContent(url);
         
-        const prompt = `
-            Du bist ein Weltklasse Conversion-Optimierer. Deine Aufgabe ist es, den folgenden HTML-Auszug einer Webseite zu analysieren.
-            
-            ANALYSE-CHECKLISTE (Deine Wissensbasis):
-            1.  **Ladezeit-Indikatoren:** Suche nach Hinweisen auf langsame Ladezeiten (z.B. viele große Bilder, exzessive Skripte).
-            2.  **Mobile Optimierung:** Prüfe auf das Fehlen eines Viewport-Meta-Tags oder starre Breitenangaben.
-            3.  **Unklare Value Proposition:** Ist die H1-Überschrift spezifisch und nutzerorientiert oder vage wie "Willkommen"?
-            4.  **Schwacher Call-to-Action (CTA):** Sind Button-Texte handlungsorientiert (z.B. "Jetzt Guide herunterladen") oder passiv (z.B. "Mehr")?
-            5.  **Aufdringliche Elemente:** Gibt es Hinweise auf sofortige Pop-ups oder Overlays?
-            6.  **Fehlende Vertrauenssignale:** Suche nach Keywords wie "Kundenstimmen", "Garantie", "Sicher", "Zertifikat" oder Links zu Datenschutz/Impressum.
-            7.  **Komplexe Formulare:** Analysiere <form>-Elemente. Sind dort mehr als 4-5 <input>-Felder für einen einfachen Lead?
-            8.  **Schlechte Lesbarkeit:** Achte auf "Walls of Text" (lange Absätze ohne Formatierung).
-            9.  **Technische Fehler-Indikatoren:** Suche nach leeren 'src' oder 'href' Attributen in <img> oder <a> Tags.
-            10. **Message Match Fehler:** Vergleiche den Seitentitel (<title>) mit der Hauptüberschrift (<h1>). Gibt es eine Diskrepanz?
+// ... (der Anfang der Datei bleibt unverändert)
 
-            DEINE AUFGABE:
-            1.  Gehe die Checkliste durch und identifiziere ALLE zutreffenden Conversion-Killer.
-            2.  Zähle die Gesamtzahl der gefundenen Killer.
-            3.  Wähle die ZWEI gravierendsten Killer aus.
-            4.  Formuliere für jeden der Top-Killer eine Detailbeschreibung.
-            
-            REGELN FÜR DIE ANTWORT:
-            - Die Detailbeschreibung muss IMMER ein kurzes, wörtliches Zitat oder einen konkreten Wert von der Seite enthalten.
-            - Die Detailbeschreibung darf MAXIMAL 15 Wörter lang sein.
-            - Deine Antwort muss AUSSCHLIESSLICH ein JSON-Objekt sein, ohne Markdown-Formatierung oder einleitenden Text.
+try {
+    // --- HAUPTLOGIK: ANALYSE ---
+    const pageContent = await getCleanedPageContent(url);
+    
+    // START: ERSETZE DEN ALTEN PROMPT DURCH DIESEN NEUEN BLOCK
+    const prompt = `
+        Du bist ein Weltklasse Conversion-Optimierer und Berater.
+        Deine Aufgabe ist es, einen HTML-Auszug zu analysieren und die Ergebnisse für einen Laien (z.B. einen Geschäftsführer) verständlich aufzubereiten.
+        Vermeide Fachjargon und erkläre die Probleme so, dass der Geschäftsnutzen klar wird.
 
-            HTML-AUSZUG ZUR ANALYSE:
-            \`\`\`html
-            ${pageContent}
-            \`\`\`
+        ANALYSE-CHECKLISTE:
+        1.  **Lange Ladezeit:** Gibt es Hinweise auf eine langsame Seite?
+        2.  **Unklar für Mobilgeräte:** Könnte die Seite auf dem Handy schlecht aussehen?
+        3.  **Unklare Botschaft:** Versteht ein Besucher in 3 Sekunden, was er hier bekommt?
+        4.  **Schwache Handlungsaufforderung:** Sind die Buttons klar und motivierend beschriftet?
+        5.  **Störende Pop-ups:** Gibt es Hinweise auf Elemente, die den Inhalt sofort verdecken?
+        6.  **Fehlendes Vertrauen:** Fehlen Kundenstimmen, Siegel oder klare Kontaktinfos?
+        7.  **Komplizierte Formulare:** Muss man zu viele Felder ausfüllen?
+        8.  **Schlechte Lesbarkeit:** Ist der Text anstrengend zu lesen (z.B. zu klein, zu lang)?
+        9.  **Technische Fehler:** Gibt es Hinweise auf kaputte Bilder oder Links?
+        10. **Verwirrende Botschaft:** Passen Werbeanzeige und Seiteninhalt zusammen?
 
-            BEISPIEL-ANTWORT-FORMAT:
+        DEINE AUFGABE:
+        1.  Identifiziere ALLE zutreffenden Probleme aus der Checkliste.
+        2.  Zähle die Gesamtzahl der gefundenen Probleme.
+        3.  Wähle die ZWEI gravierendsten aus.
+        4.  Formuliere für die Top-Probleme einen Titel und eine Detailbeschreibung.
+
+        REGELN FÜR DIE ANTWORT:
+        - Die Titel müssen das Problem aus Nutzersicht beschreiben (z.B. "Besucher fühlen sich unsicher").
+        - Die Detailbeschreibung muss das Problem erklären, ein Zitat von der Seite enthalten UND den negativen Effekt auf Nutzer hervorheben.
+        - Die Detailbeschreibung darf MAXIMAL 25 Wörter lang sein.
+        - Deine Antwort muss AUSSCHLIESSLICH ein JSON-Objekt sein, ohne Markdown.
+
+        HTML-AUSZUG ZUR ANALYSE:
+        \`\`\`html
+        ${pageContent}
+        \`\`\`
+
+        GUTE, VERSTÄNDLICHE BEISPIELE (NEUER STIL):
+        {
+          "totalFound": 4,
+          "topKillers": [
             {
-              "totalFound": 5,
-              "topKillers": [
-                {
-                  "title": "Unklare Value Proposition",
-                  "detail": "Die Hauptüberschrift 'Herzlich Willkommen' kommuniziert keinen direkten Nutzen für den Besucher."
-                },
-                {
-                  "title": "Schwacher Call-to-Action",
-                  "detail": "Dem Button-Text 'Weiter' fehlt eine klare Handlungsaufforderung und ein spezifisches Versprechen."
-                }
-              ]
+              "title": "Besucher verstehen den Nutzen nicht",
+              "detail": "Die Überschrift 'Herzlich Willkommen' erklärt nicht den Vorteil. Nutzer springen ab, wenn sie nicht sofort wissen, was die Seite für sie tut."
+            },
+            {
+              "title": "Unklare Handlungsaufforderung",
+              "detail": "Der Button 'Mehr erfahren' ist zu passiv. Besucher klicken eher auf eine klare Anweisung wie 'Jetzt Analyse starten' und konvertieren dadurch häufiger."
             }
-        `;
+          ]
+        }
+    `;
+    // ENDE: ERSETZE DEN ALTEN PROMPT DURCH DIESEN NEUEN BLOCK
+
+    const apiResponse = await fetch(GEMINI_API_URL, {
+        // ... (der Rest der Datei bleibt unverändert)
 
         const apiResponse = await fetch(GEMINI_API_URL, {
             method: 'POST',

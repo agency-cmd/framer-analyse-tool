@@ -1,4 +1,4 @@
-// /api/analyze.ts - v5.0 (final) mit "Function Calling" für maximale Zuverlässigkeit
+// /api/analyze.ts - v5.1 mit Fokus auf prägnante Ergebnisse
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 import * as cheerio from 'cheerio';
@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
     }
 
-    const cacheKey = `cro-analysis-v5.0:${url}`;
+    const cacheKey = `cro-analysis-v5.1:${url}`;
     try {
         const cachedResult = await kv.get<any>(cacheKey);
         if (cachedResult) { return res.status(200).json(cachedResult); }
@@ -64,26 +64,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         const pageContent = await getCleanedPageContent(url);
         
-        // --- START: NEUER ANSATZ MIT "FUNCTION CALLING" ---
+        // --- START: NEUER PROMPT FÜR PRÄGNANZ ---
         const prompt = `
-            Du bist ein Weltklasse Conversion-Optimierer. Deine Aufgabe ist es, den folgenden HTML-Code einer Webseite wie ein menschlicher Auditor zu prüfen.
-            Du musst aktiv nach Problemen suchen und insbesondere das Fehlen von wichtigen Elementen als kritischen Fehler bewerten.
+            Du bist ein Weltklasse Conversion-Optimierer. Deine Aufgabe ist es, den HTML-Code zu prüfen.
 
             DEIN PRÜFAUFTRAG:
             Prüfe den HTML-Code anhand der folgenden Checkliste. Identifiziere ALLE zutreffenden Probleme, zähle sie und merke dir die ZWEI gravierendsten.
 
             Checkliste:
             1.  **Unklare Value Proposition:** Ist der \`<h1>\`-Text vage oder voller Jargon?
-            2.  **Fehlender/Schwacher CTA:** Fehlt ein klarer, aktiver Call-to-Action Button im oberen Bereich? Sind Button-Texte passiv?
+            2.  **Fehlender/Schwacher CTA:** Fehlt ein klarer, aktiver Call-to-Action Button? Sind Button-Texte passiv?
             3.  **Fehlende Vertrauenssignale:** Fehlen Wörter wie "Kundenstimmen", "Bewertungen", "Partner" oder Kundenlogos?
-            4.  **Zu viele Ablenkungen:** Gibt es eine \`<nav>\`-Leiste mit zu vielen Links, die vom Ziel ablenken?
+            4.  **Zu viele Ablenkungen:** Gibt es eine \`<nav>\`-Leiste mit zu vielen Links?
             5.  **Fehlende mobile Optimierung:** Fehlt das \`<meta name="viewport">\`-Tag im \`<head>\`-Bereich?
             6.  **"Message Match"-Fehler:** Weicht der \`<title>\` stark von der \`<h1>\`-Botschaft ab?
             7.  **Komplexes Formular:** Hat ein \`<form>\`-Element mehr als 4-5 \`<input>\`-Felder?
             8.  Weitere Probleme wie technische Fehler, schlechte Lesbarkeit etc.
 
             NACH DEINER ANALYSE:
-            Rufe zwingend das Werkzeug 'reportConversionKillers' auf, um deine Ergebnisse zu übermitteln. Formuliere die Titel aus Nutzersicht und die Detailbeschreibung (max. 25 Wörter) mit einem Zitat/Beispiel und dem negativen Effekt.
+            Rufe zwingend das Werkzeug 'reportConversionKillers' auf.
+
+            REGELN FÜR DIE DETAILBESCHREIBUNG:
+            - **STRIKTES LIMIT: MAXIMAL 15 WÖRTER!**
+            - Muss das Problem kurz benennen und ein Zitat/Beispiel enthalten.
+            - Titel müssen aus Nutzersicht formuliert sein.
+
+            GUTE, KURZE BEISPIELE FÜR DIE 'detail'-BESCHREIBUNG:
+            - "Die Überschrift 'MAGILE ist das neue Agile' ist unklar und erklärt keinen Kundennutzen."
+            - "Es fehlt ein klarer Handlungsaufruf im sichtbaren Bereich, was Nutzer orientierungslos macht."
+            - "Der Button-Text 'Mehr erfahren' ist zu passiv und motiviert nicht zum Klicken."
 
             ZU PRÜFENDER HTML-CODE:
             \`\`\`html
@@ -108,7 +117,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                                 required: ["title", "detail"],
                                 properties: {
                                     title: { type: "STRING", description: "Der nutzerfreundliche Titel des Problems." },
-                                    detail: { type: "STRING", description: "Die Detailbeschreibung (max. 25 Wörter) mit Zitat und negativem Effekt." }
+                                    detail: { type: "STRING", description: "Die SEHR KURZE Detailbeschreibung (maximal 15 Wörter) mit Zitat." }
                                 }
                             }
                         }
@@ -125,6 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 tools: tools,
             }),
         });
+        // --- ENDE: NEUER PROMPT FÜR PRÄGNANZ ---
 
         if (!apiResponse.ok) {
             const errorBody = await apiResponse.text();
@@ -137,11 +147,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (!functionCall || functionCall.name !== 'reportConversionKillers') {
             console.error("KI hat nicht das erwartete Werkzeug aufgerufen:", responseData);
+            // Fallback, falls die KI aus irgendeinem Grund keine Killer meldet
+            if (!functionCall) {
+                 const result = { isSpecialCase: true, specialNote: `Glückwunsch! Auf ${new URL(url).hostname} wurden keine gravierenden Conversion-Killer gefunden.` };
+                 await kv.set(cacheKey, result, { ex: 259200 });
+                 return res.status(200).json(result);
+            }
             throw new Error("Die KI konnte keine strukturierte Analyse liefern.");
         }
         
         const analysisResult = functionCall.args;
-        // --- ENDE: NEUER ANSATZ ---
         
         const totalFound = analysisResult.totalFound || 0;
         if (totalFound === 0) {

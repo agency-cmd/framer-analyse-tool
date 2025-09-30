@@ -1,4 +1,4 @@
-// /api/analyze.ts - v3.1 mit korrigiertem Browserless.io Endpoint
+// /api/analyze.ts - v3.2 mit korrigiertem Browserless.io Body
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 import * as cheerio from 'cheerio';
@@ -12,13 +12,10 @@ if (!GEMINI_API_KEY || !BROWSERLESS_API_KEY) {
 }
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-// --- DATENERFASSUNG (JETZT MIT KORREKTEM BROWSERLESS.IO ENDPOINT) ---
+// --- DATENERFASSUNG (MIT KORREKTEM BROWSERLESS.IO PAYLOAD) ---
 async function getCleanedPageContent(url: string): Promise<string> {
     try {
-        // --- START DER ÄNDERUNG ---
-        // Die alte URL 'https://chrome.browserless.io/content' wurde durch die neue ersetzt.
         const browserlessUrl = `https://production-sfo.browserless.io/content?token=${BROWSERLESS_API_KEY}`;
-        // --- ENDE DER ÄNDERUNG ---
 
         const response = await fetch(browserlessUrl, {
             method: 'POST',
@@ -26,10 +23,12 @@ async function getCleanedPageContent(url: string): Promise<string> {
                 'Cache-Control': 'no-cache',
                 'Content-Type': 'application/json',
             },
+            // --- START DER ÄNDERUNG ---
+            // Die Zeile "waitFor: 2000" wurde entfernt, da sie nicht mehr unterstützt wird.
             body: JSON.stringify({
                 url: url,
-                waitFor: 2000,
             }),
+            // --- ENDE DER ÄNDERUNG ---
         });
 
         if (!response.ok) {
@@ -82,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
     }
 
-    const cacheKey = `cro-analysis-v3.1:${url}`; // Version im Key erhöht
+    const cacheKey = `cro-analysis-v3.2:${url}`; // Version im Key erhöht
     try {
         const cachedResult = await kv.get<any>(cacheKey);
         if (cachedResult) {
@@ -96,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const pageContent = await getCleanedPageContent(url);
         
         const prompt = `
-            Du bist ein Weltklasse Conversion-Optimierter und Berater.
+            Du bist ein Weltklasse Conversion-Optimierer und Berater.
             Deine Aufgabe ist es, einen HTML-Auszug zu analysieren und die Ergebnisse für einen Laien (z.B. einen Geschäftsführer) verständlich aufzubereiten.
             Vermeide Fachjargon und erkläre die Probleme so, dass der Geschäftsnutzen klar wird.
 

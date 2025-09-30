@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (url.includes('luqy.studio')) {
-        return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
+        return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist schon eine 10/10. 😉 Bereit für deine eigene?" });
     }
 
     const cacheKey = `cro-analysis-v3.2:${url}`; // Version im Key erhöht
@@ -120,7 +120,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             REGELN FÜR DIE ANTWORT:
             - Die Titel müssen das Problem aus Nutzersicht beschreiben (z.B. "Besucher fühlen sich unsicher").
             - Die Detailbeschreibung muss das Problem erklären, ein Zitat von der Seite enthalten UND den negativen Effekt auf Nutzer hervorheben.
-            - Die Detailbeschreibung darf MAXIMAL 25 Wörter lang sein.
+            - Die Detailbeschreibung darf MAXIMAL 15 Wörter lang sein.
             - Deine Antwort muss AUSSCHLIESSLICH ein JSON-Objekt sein, ohne Markdown.
 
             HTML-AUSZUG ZUR ANALYSE:

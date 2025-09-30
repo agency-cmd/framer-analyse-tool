@@ -9,7 +9,7 @@ if (!GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY ist nicht in den Umgebungsvariablen gesetzt.");
 }
 // HINWEIS: Das Modell wurde auf "gemini-1.5-flash-latest" aktualisiert, da "gemini-2.5-flash" nicht existiert.
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 // --- DATENERFASSUNG & -BEREINIGUNG (VERBESSERT) ---
 async function getCleanedPageContent(url: string): Promise<string> {

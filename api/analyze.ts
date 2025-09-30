@@ -1,4 +1,4 @@
-// /api/analyze.ts - v4.1 (final) mit korrekter HTML-Extraktion für maximale Qualität
+// /api/analyze.ts - v5.0 (final) mit "Function Calling" für maximale Zuverlässigkeit
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 import * as cheerio from 'cheerio';
@@ -12,7 +12,7 @@ if (!GEMINI_API_KEY || !BROWSERLESS_API_KEY) {
 }
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-// --- DATENERFASSUNG (KORRIGIERT: BEHÄLT <HEAD> UND <BODY>) ---
+// --- DATENERFASSUNG (BEHÄLT <HEAD> UND <BODY>) ---
 async function getCleanedPageContent(url: string): Promise<string> {
     try {
         const browserlessUrl = `https://production-sfo.browserless.io/content?token=${BROWSERLESS_API_KEY}`;
@@ -27,28 +27,17 @@ async function getCleanedPageContent(url: string): Promise<string> {
         }
         const html = await response.text();
         const $ = cheerio.load(html);
-
-        // Entferne Skripte und Styles aus dem gesamten Dokument
         $('script, style, noscript').remove();
-        
-        // --- START DER KORREKTUR ---
-        // Statt nur den body-Inhalt zu nehmen, nehmen wir das gesamte, bereinigte HTML.
-        // Das bewahrt <head>, <title>, <meta>-Tags UND den <body>.
         const fullCleanedHtml = $.html() || '';
-        // --- ENDE DER KORREKTUR ---
-        
         const condensedHtml = fullCleanedHtml.replace(/\s+/g, ' ').trim();
-        
-        // Limit leicht erhöht, um sicherzustellen, dass alles Platz hat
         return condensedHtml.substring(0, 40000);
-
     } catch (error) {
         console.error(`Fehler beim Abrufen der URL ${url} via Browserless:`, error);
         throw new Error("Die Webseite konnte nicht vollständig geladen werden.");
     }
 }
 
-// --- API-HANDLER (unverändert) ---
+// --- API-HANDLER ---
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -66,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
     }
 
-    const cacheKey = `cro-analysis-v4.1:${url}`;
+    const cacheKey = `cro-analysis-v5.0:${url}`;
     try {
         const cachedResult = await kv.get<any>(cacheKey);
         if (cachedResult) { return res.status(200).json(cachedResult); }
@@ -75,37 +64,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         const pageContent = await getCleanedPageContent(url);
         
+        // --- START: NEUER ANSATZ MIT "FUNCTION CALLING" ---
         const prompt = `
             Du bist ein Weltklasse Conversion-Optimierer. Deine Aufgabe ist es, den folgenden HTML-Code einer Webseite wie ein menschlicher Auditor zu prüfen.
             Du musst aktiv nach Problemen suchen und insbesondere das Fehlen von wichtigen Elementen als kritischen Fehler bewerten.
 
-            DEIN PRÜFAUFTRAG (Checkliste nach Wichtigkeit):
-            1.  **Unklare Value Proposition:** Finde das \`<h1>\`-Element. Ist sein Text vage, voller Jargon oder erklärt er keinen klaren Nutzen für den Kunden? (z.B. "Willkommen" oder "Das neue Agile"). Wenn ja, ist das ein Killer.
-            2.  **Schwacher oder fehlender Call-to-Action (CTA):** Durchsuche den Code nach prominenten Buttons (\`<button>\`, \`<a>\` mit Button-Klassen). Gibt es im oberen Seitenbereich einen klaren, aktiven Handlungsaufruf (z.B. "Jetzt starten")? Wenn gar kein klarer CTA zu finden ist, ist das ein SEHR KRITISCHER Killer. Passive Texte wie "Mehr erfahren" sind ebenfalls ein Killer.
-            3.  **Fehlende Vertrauenssignale:** Durchsuche den gesamten Text. Findest du Wörter wie "Kundenstimmen", "Bewertungen", "Partner", "Garantie", "Zertifikat"? Gibt es \`<img>\`-Tags, die auf Kundenlogos hindeuten? Wenn solche Signale komplett fehlen, ist das ein schwerwiegender Killer.
-            4.  **Zu viele Ablenkungen:** Gibt es ein \`<nav>\`-Element mit vielen Links (z.B. mehr als 3-4)? Gibt es Links zu Social Media oder zum "Blog"? Wenn ja, lenken diese vom Hauptziel ab und sind ein Killer.
-            5.  **Fehlende mobile Optimierung:** Gibt es ein \`<meta name="viewport">\`-Tag im \`<head>\`-Bereich? Wenn es fehlt, ist die Seite wahrscheinlich nicht für Mobilgeräte optimiert. Das ist ein Killer.
-            6.  **"Message Match"-Fehler:** Finde das \`<title>\`-Tag. Weicht der Titel stark von der Botschaft des \`<h1>\`-Tags ab? Wenn ja, ist das ein Killer.
-            7.  **Komplexes Formular:** Wenn du ein \`<form>\`-Element findest, zähle die \`<input>\`-Felder. Sind es mehr als 4-5? Dann ist das ein Killer.
-            8.  Weitere Killer wie **technische Fehler** (leere Links), **schlechte Lesbarkeit** (sehr lange \`<p>\`-Tags ohne Formatierung) oder **aufdringliche Pop-ups** (Texte wie "Angebot nicht verpassen") solltest du ebenfalls identifizieren.
+            DEIN PRÜFAUFTRAG:
+            Prüfe den HTML-Code anhand der folgenden Checkliste. Identifiziere ALLE zutreffenden Probleme, zähle sie und merke dir die ZWEI gravierendsten.
 
-            DEINE AUFGABE & REGELN:
-            - Führe den Prüfauftrag aus. Identifiziere ALLE zutreffenden Probleme.
-            - Zähle die Gesamtzahl und wähle die TOP 2 gravierendsten aus.
-            - Titel aus Nutzersicht.
-            - Detailbeschreibung (max. 25 Wörter) muss das Problem erklären, ein Zitat/Beispiel aus dem Code enthalten und den negativen Effekt aufzeigen. Zitiere auch, wenn etwas fehlt (z.B. "Es wurde kein primärer CTA-Button gefunden.").
-            - Antwort nur als JSON.
+            Checkliste:
+            1.  **Unklare Value Proposition:** Ist der \`<h1>\`-Text vage oder voller Jargon?
+            2.  **Fehlender/Schwacher CTA:** Fehlt ein klarer, aktiver Call-to-Action Button im oberen Bereich? Sind Button-Texte passiv?
+            3.  **Fehlende Vertrauenssignale:** Fehlen Wörter wie "Kundenstimmen", "Bewertungen", "Partner" oder Kundenlogos?
+            4.  **Zu viele Ablenkungen:** Gibt es eine \`<nav>\`-Leiste mit zu vielen Links, die vom Ziel ablenken?
+            5.  **Fehlende mobile Optimierung:** Fehlt das \`<meta name="viewport">\`-Tag im \`<head>\`-Bereich?
+            6.  **"Message Match"-Fehler:** Weicht der \`<title>\` stark von der \`<h1>\`-Botschaft ab?
+            7.  **Komplexes Formular:** Hat ein \`<form>\`-Element mehr als 4-5 \`<input>\`-Felder?
+            8.  Weitere Probleme wie technische Fehler, schlechte Lesbarkeit etc.
+
+            NACH DEINER ANALYSE:
+            Rufe zwingend das Werkzeug 'reportConversionKillers' auf, um deine Ergebnisse zu übermitteln. Formuliere die Titel aus Nutzersicht und die Detailbeschreibung (max. 25 Wörter) mit einem Zitat/Beispiel und dem negativen Effekt.
 
             ZU PRÜFENDER HTML-CODE:
             \`\`\`html
             ${pageContent}
             \`\`\`
         `;
-        
+
+        const tools = [{
+            function_declarations: [{
+                name: "reportConversionKillers",
+                description: "Übermittelt die gefundenen Conversion-Killer einer Webseiten-Analyse.",
+                parameters: {
+                    type: "OBJECT",
+                    required: ["totalFound", "topKillers"],
+                    properties: {
+                        totalFound: { type: "NUMBER", description: "Die Gesamtzahl aller gefundenen Conversion-Killer." },
+                        topKillers: {
+                            type: "ARRAY",
+                            description: "Eine Liste der Top 2 gravierendsten Conversion-Killer.",
+                            items: {
+                                type: "OBJECT",
+                                required: ["title", "detail"],
+                                properties: {
+                                    title: { type: "STRING", description: "Der nutzerfreundliche Titel des Problems." },
+                                    detail: { type: "STRING", description: "Die Detailbeschreibung (max. 25 Wörter) mit Zitat und negativem Effekt." }
+                                }
+                            }
+                        }
+                    }
+                }
+            }]
+        }];
+
         const apiResponse = await fetch(GEMINI_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                tools: tools,
+            }),
         });
 
         if (!apiResponse.ok) {
@@ -115,19 +133,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         
         const responseData = await apiResponse.json();
-        if (!responseData.candidates?.[0]?.content?.parts?.[0]?.text) {
-             throw new Error("Unerwartetes Format der KI-Antwort erhalten.");
+        const functionCall = responseData.candidates?.[0]?.content?.parts?.[0]?.functionCall;
+
+        if (!functionCall || functionCall.name !== 'reportConversionKillers') {
+            console.error("KI hat nicht das erwartete Werkzeug aufgerufen:", responseData);
+            throw new Error("Die KI konnte keine strukturierte Analyse liefern.");
         }
-        const responseText = responseData.candidates[0].content.parts[0].text;
         
-        let analysisResult;
-        try {
-            const cleanedJsonString = responseText.match(/\{[\s\S]*\}/)[0];
-            analysisResult = JSON.parse(cleanedJsonString);
-        } catch (e) {
-            console.error("Fehler beim Parsen der KI-Antwort:", responseText);
-            throw new Error("Die Antwort der KI hatte ein ungültiges Format.");
-        }
+        const analysisResult = functionCall.args;
+        // --- ENDE: NEUER ANSATZ ---
         
         const totalFound = analysisResult.totalFound || 0;
         if (totalFound === 0) {

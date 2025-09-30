@@ -1,4 +1,4 @@
-// /api/analyze.ts - v4.0 mit Fokus auf maximale Qualität durch Audit-Prompt
+// /api/analyze.ts - v4.1 (final) mit korrekter HTML-Extraktion für maximale Qualität
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 import * as cheerio from 'cheerio';
@@ -12,7 +12,7 @@ if (!GEMINI_API_KEY || !BROWSERLESS_API_KEY) {
 }
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-// --- DATENERFASSUNG (Zurück zum bereinigten, aber vollständigen HTML) ---
+// --- DATENERFASSUNG (KORRIGIERT: BEHÄLT <HEAD> UND <BODY>) ---
 async function getCleanedPageContent(url: string): Promise<string> {
     try {
         const browserlessUrl = `https://production-sfo.browserless.io/content?token=${BROWSERLESS_API_KEY}`;
@@ -28,12 +28,19 @@ async function getCleanedPageContent(url: string): Promise<string> {
         const html = await response.text();
         const $ = cheerio.load(html);
 
-        // Wir entfernen nur noch Skripte und Styles, behalten aber die gesamte sichtbare Struktur.
-        $('script, style, noscript, svg').remove();
-        const bodyHtml = $('body').html() || '';
-        const condensedHtml = bodyHtml.replace(/\s+/g, ' ').trim();
+        // Entferne Skripte und Styles aus dem gesamten Dokument
+        $('script, style, noscript').remove();
         
-        return condensedHtml.substring(0, 25000); // Leicht erhöhtes Limit für mehr Kontext
+        // --- START DER KORREKTUR ---
+        // Statt nur den body-Inhalt zu nehmen, nehmen wir das gesamte, bereinigte HTML.
+        // Das bewahrt <head>, <title>, <meta>-Tags UND den <body>.
+        const fullCleanedHtml = $.html() || '';
+        // --- ENDE DER KORREKTUR ---
+        
+        const condensedHtml = fullCleanedHtml.replace(/\s+/g, ' ').trim();
+        
+        // Limit leicht erhöht, um sicherzustellen, dass alles Platz hat
+        return condensedHtml.substring(0, 40000);
 
     } catch (error) {
         console.error(`Fehler beim Abrufen der URL ${url} via Browserless:`, error);
@@ -41,7 +48,7 @@ async function getCleanedPageContent(url: string): Promise<string> {
     }
 }
 
-// --- API-HANDLER ---
+// --- API-HANDLER (unverändert) ---
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -59,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
     }
 
-    const cacheKey = `cro-analysis-v4.0:${url}`;
+    const cacheKey = `cro-analysis-v4.1:${url}`;
     try {
         const cachedResult = await kv.get<any>(cacheKey);
         if (cachedResult) { return res.status(200).json(cachedResult); }
@@ -68,7 +75,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         const pageContent = await getCleanedPageContent(url);
         
-        // --- START: NEUER AUDIT-PROMPT FÜR MAXIMALE QUALITÄT ---
         const prompt = `
             Du bist ein Weltklasse Conversion-Optimierer. Deine Aufgabe ist es, den folgenden HTML-Code einer Webseite wie ein menschlicher Auditor zu prüfen.
             Du musst aktiv nach Problemen suchen und insbesondere das Fehlen von wichtigen Elementen als kritischen Fehler bewerten.
@@ -78,7 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             2.  **Schwacher oder fehlender Call-to-Action (CTA):** Durchsuche den Code nach prominenten Buttons (\`<button>\`, \`<a>\` mit Button-Klassen). Gibt es im oberen Seitenbereich einen klaren, aktiven Handlungsaufruf (z.B. "Jetzt starten")? Wenn gar kein klarer CTA zu finden ist, ist das ein SEHR KRITISCHER Killer. Passive Texte wie "Mehr erfahren" sind ebenfalls ein Killer.
             3.  **Fehlende Vertrauenssignale:** Durchsuche den gesamten Text. Findest du Wörter wie "Kundenstimmen", "Bewertungen", "Partner", "Garantie", "Zertifikat"? Gibt es \`<img>\`-Tags, die auf Kundenlogos hindeuten? Wenn solche Signale komplett fehlen, ist das ein schwerwiegender Killer.
             4.  **Zu viele Ablenkungen:** Gibt es ein \`<nav>\`-Element mit vielen Links (z.B. mehr als 3-4)? Gibt es Links zu Social Media oder zum "Blog"? Wenn ja, lenken diese vom Hauptziel ab und sind ein Killer.
-            5.  **Fehlende mobile Optimierung:** Gibt es ein \`<meta name="viewport">\`-Tag? Wenn es fehlt, ist die Seite wahrscheinlich nicht für Mobilgeräte optimiert. Das ist ein Killer.
+            5.  **Fehlende mobile Optimierung:** Gibt es ein \`<meta name="viewport">\`-Tag im \`<head>\`-Bereich? Wenn es fehlt, ist die Seite wahrscheinlich nicht für Mobilgeräte optimiert. Das ist ein Killer.
             6.  **"Message Match"-Fehler:** Finde das \`<title>\`-Tag. Weicht der Titel stark von der Botschaft des \`<h1>\`-Tags ab? Wenn ja, ist das ein Killer.
             7.  **Komplexes Formular:** Wenn du ein \`<form>\`-Element findest, zähle die \`<input>\`-Felder. Sind es mehr als 4-5? Dann ist das ein Killer.
             8.  Weitere Killer wie **technische Fehler** (leere Links), **schlechte Lesbarkeit** (sehr lange \`<p>\`-Tags ohne Formatierung) oder **aufdringliche Pop-ups** (Texte wie "Angebot nicht verpassen") solltest du ebenfalls identifizieren.
@@ -95,7 +101,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ${pageContent}
             \`\`\`
         `;
-        // --- ENDE: NEUER AUDIT-PROMPT ---
         
         const apiResponse = await fetch(GEMINI_API_URL, {
             method: 'POST',

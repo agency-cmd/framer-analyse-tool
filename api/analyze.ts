@@ -1,27 +1,39 @@
-// /api/analyze.ts - KORRIGIERTE VERSION
+// /api/analyze.ts - v3 mit Browserless.io für SPA-Rendering
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 import * as cheerio from 'cheerio';
 
 // --- UMWELTSVARIABLEN ---
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY ist nicht in den Umgebungsvariablen gesetzt.");
+const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY; // NEU
+
+if (!GEMINI_API_KEY || !BROWSERLESS_API_KEY) {
+    throw new Error("Erforderliche Umgebungsvariablen (GEMINI_API_KEY, BROWSERLESS_API_KEY) sind nicht gesetzt.");
 }
-// HINWEIS: Das Modell wurde auf "gemini-1.5-flash-latest" aktualisiert, da "gemini-2.5-flash" nicht existiert.
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-// --- DATENERFASSUNG & -BEREINIGUNG (VERBESSERT) ---
+// --- DATENERFASSUNG (JETZT MIT BROWSERLESS.IO) ---
 async function getCleanedPageContent(url: string): Promise<string> {
     try {
-        const response = await fetch(url, {
+        const browserlessUrl = `https://chrome.browserless.io/content?token=${BROWSERLESS_API_KEY}`;
+
+        const response = await fetch(browserlessUrl, {
+            method: 'POST',
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
+                'Cache-Control': 'no-cache',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                url: url,
+                waitFor: 2000, // Gib der Seite 2 Sekunden Zeit, um alle Skripte zu laden
+            }),
         });
+
         if (!response.ok) {
-            throw new Error(`HTTP-Fehler! Status: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`Browserless API Fehler! Status: ${response.status}. Details: ${errorText}`);
         }
+        
         const html = await response.text();
         const $ = cheerio.load(html);
 
@@ -30,14 +42,16 @@ async function getCleanedPageContent(url: string): Promise<string> {
         const condensedHtml = bodyHtml.replace(/\s+/g, ' ').trim();
         
         return condensedHtml.substring(0, 20000);
+
     } catch (error) {
-        console.error(`Fehler beim Abrufen oder Parsen der URL ${url}:`, error);
-        throw new Error("Die Webseite konnte nicht analysiert werden. Ist die URL korrekt und öffentlich zugänglich?");
+        console.error(`Fehler beim Abrufen oder Parsen der URL ${url} via Browserless:`, error);
+        throw new Error("Die Webseite konnte nicht vollständig geladen werden. Möglicherweise ist sie sehr langsam oder blockiert Analysen.");
     }
 }
 
-// --- API-HANDLER ---
+// --- API-HANDLER (unverändert, außer der aufgerufenen Funktion) ---
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    // CORS Header
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -49,6 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(405).json({ message: 'Methode nicht erlaubt. Nur POST-Anfragen sind zulässig.' });
     }
 
+    // Input Validierung
     let { url } = req.body;
     if (typeof url !== 'string' || url.trim() === '') {
         return res.status(400).json({ message: 'Bitte gib eine URL ein.' });
@@ -62,11 +77,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ message: 'Das Format der URL ist ungültig.' });
     }
 
+    // Sonderfall
     if (url.includes('luqy.studio')) {
         return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
     }
 
-    const cacheKey = `cro-analysis-v2:${url}`;
+    // Caching
+    const cacheKey = `cro-analysis-v3:${url}`; // Version im Key erhöht
     try {
         const cachedResult = await kv.get<any>(cacheKey);
         if (cachedResult) {
@@ -77,6 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
+        // HIER IST DIE MAGIE: getCleanedPageContent nutzt jetzt Browserless
         const pageContent = await getCleanedPageContent(url);
         
         const prompt = `
@@ -143,7 +161,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const responseData = await apiResponse.json();
         
-        // Kleine Sicherheitsprüfung, falls die API-Antwort unerwartet ist
         if (!responseData.candidates || !responseData.candidates[0].content.parts[0].text) {
              throw new Error("Unerwartetes Format der KI-Antwort erhalten.");
         }
@@ -165,7 +182,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 isSpecialCase: true,
                 specialNote: `Glückwunsch! Auf ${new URL(url).hostname} wurden keine gravierenden Conversion-Killer gefunden.`
             };
-            await kv.set(cacheKey, result, { ex: 259200 }); // 3 Tage Cache
+            await kv.set(cacheKey, result, { ex: 259200 });
             return res.status(200).json(result);
         }
         

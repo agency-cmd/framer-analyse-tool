@@ -85,14 +85,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             Rufe zwingend das Werkzeug 'reportConversionKillers' auf.
 
             REGELN FÜR DIE DETAILBESCHREIBUNG:
-            - **STRIKTES LIMIT: MAXIMAL 15 WÖRTER!**
+            - **STRIKTES LIMIT: MAXIMAL 10 WÖRTER!**
             - Muss das Problem kurz benennen und ein Zitat/Beispiel enthalten.
             - Titel müssen aus Nutzersicht formuliert sein.
 
             GUTE, KURZE BEISPIELE FÜR DIE 'detail'-BESCHREIBUNG:
-            - "Die Überschrift 'MAGILE ist das neue Agile' ist unklar und erklärt keinen Kundennutzen."
-            - "Es fehlt ein klarer Handlungsaufruf im sichtbaren Bereich, was Nutzer orientierungslos macht."
-            - "Der Button-Text 'Mehr erfahren' ist zu passiv und motiviert nicht zum Klicken."
+            - "Die Überschrift 'MAGILE ist das neue Agile' ist unklar."
+            - "Es fehlt ein klarer Handlungsaufruf im sichtbaren Bereich."
+            - "Der Button-Text 'Mehr erfahren' ist zu passiv."
 
             ZU PRÜFENDER HTML-CODE:
             \`\`\`html
@@ -117,7 +117,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                                 required: ["title", "detail"],
                                 properties: {
                                     title: { type: "STRING", description: "Der nutzerfreundliche Titel des Problems." },
-                                    detail: { type: "STRING", description: "Die SEHR KURZE Detailbeschreibung (maximal 15 Wörter) mit Zitat." }
+                                    detail: { type: "STRING", description: "Die SEHR KURZE Detailbeschreibung (maximal 10 Wörter) mit Zitat." }
                                 }
                             }
                         }

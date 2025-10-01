@@ -1,4 +1,4 @@
-// /api/analyze.ts - v5.1 mit Fokus auf prägnante Ergebnisse
+// /api/analyze.ts - v5.3 mit intelligenterer Mobile-Optimierungs-Prüfung
 import { NextApiRequest, NextApiResponse } from 'next';
 import { kv } from '@vercel/kv';
 import * as cheerio from 'cheerio';
@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
     }
 
-    const cacheKey = `cro-analysis-v5.1:${url}`;
+    const cacheKey = `cro-analysis-v5.3:${url}`;
     try {
         const cachedResult = await kv.get<any>(cacheKey);
         if (cachedResult) { return res.status(200).json(cachedResult); }
@@ -64,41 +64,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
         const pageContent = await getCleanedPageContent(url);
         
-        // --- START: NEUER PROMPT FÜR PRÄGNANZ ---
+        // --- START: PROMPT MIT VERBESSERTER MOBILE-PRÜFUNG ---
         const prompt = `
-            Du bist ein Weltklasse Conversion-Optimierer. Deine Aufgabe ist es, den HTML-Code zu prüfen.
+            Du bist ein Weltklasse Conversion-Optimierer. Deine Aufgabe ist es, den HTML-Code wie ein menschlicher Auditor zu prüfen und dabei aktiv nach Problemen zu suchen, insbesondere nach fehlenden Elementen.
 
             DEIN PRÜFAUFTRAG:
-            Prüfe den HTML-Code anhand der folgenden Checkliste. Identifiziere ALLE zutreffenden Probleme, zähle sie und merke dir die ZWEI gravierendsten.
+            Prüfe den HTML-Code anhand der folgenden 11-Punkte-Checkliste. Identifiziere ALLE zutreffenden Probleme, zähle sie und merke dir die ZWEI gravierendsten.
 
             Checkliste:
-            1.  **Unklare Value Proposition:** Ist der \`<h1>\`-Text vage oder voller Jargon?
-            2.  **Fehlender/Schwacher CTA:** Fehlt ein klarer, aktiver Call-to-Action Button? Sind Button-Texte passiv?
-            3.  **Fehlende Vertrauenssignale:** Fehlen Wörter wie "Kundenstimmen", "Bewertungen", "Partner" oder Kundenlogos?
-            4.  **Zu viele Ablenkungen:** Gibt es eine \`<nav>\`-Leiste mit zu vielen Links?
-            5.  **Fehlende mobile Optimierung:** Fehlt das \`<meta name="viewport">\`-Tag im \`<head>\`-Bereich?
-            6.  **"Message Match"-Fehler:** Weicht der \`<title>\` stark von der \`<h1>\`-Botschaft ab?
-            7.  **Komplexes Formular:** Hat ein \`<form>\`-Element mehr als 4-5 \`<input>\`-Felder?
-            8.  Weitere Probleme wie technische Fehler, schlechte Lesbarkeit etc.
+            1.  **Langsame Ladezeit:** Suche nach Indikatoren für eine langsame Seite (z.B. ungewöhnlich viele \`<img>\`- oder \`<script>\`-Tags).
+            2.  **Fehlende mobile Optimierung:** Ein fehlendes \`<meta name="viewport">\`-Tag ist ein starkes Warnsignal. Melde diesen Fehler aber nur, wenn du auch sonst keine Hinweise auf ein responsives Design findest (z.B. CSS-Klassen mit "mobile", "sm:", "md:", "lg:").
+            3.  **Unklare Value Proposition:** Ist der \`<h1>\`-Text vage, voller Jargon oder erklärt er keinen klaren Kundennutzen?
+            4.  **"Message Match"-Fehler:** Weicht der \`<title>\` stark von der \`<h1>\`-Botschaft ab?
+            5.  **Fehlender/Schwacher CTA:** Fehlt ein klarer, aktiver Call-to-Action Button im oberen Bereich? Sind Button-Texte passiv?
+            6.  **Offensichtliche technische Fehler:** Gibt es Hinweise auf kaputte Bilder (\`src=""\`) oder fehlerhafte Links (\`href=""\`)?
+            7.  **Fehlende Vertrauenssignale:** Fehlen Wörter wie "Kundenstimmen", "Bewertungen", "Partner" oder Kundenlogos?
+            8.  **Zu viele Ablenkungen:** Gibt es eine \`<nav>\`-Leiste mit zu vielen ablenkenden Links (mehr als 4)?
+            9.  **Komplexes Formular:** Hat ein \`<form>\`-Element mehr als 4-5 \`<input>\`-Felder?
+            10. **Schlechte Lesbarkeit:** Gibt es extrem lange Textblöcke in \`<p>\`-Tags ohne Absätze/Formatierung?
+            11. **Aufdringliche Pop-ups:** Gibt es Hinweise auf sofortige Overlays (z.B. Elemente mit Texten wie "Angebot nicht verpassen")?
 
             NACH DEINER ANALYSE:
-            Rufe zwingend das Werkzeug 'reportConversionKillers' auf.
+            Rufe zwingend das Werkzeug 'reportConversionKillers' auf, um deine Ergebnisse zu übermitteln.
 
             REGELN FÜR DIE DETAILBESCHREIBUNG:
-            - **STRIKTES LIMIT: MAXIMAL 10 WÖRTER!**
+            - **STRIKTES LIMIT: MAXIMAL 15 WÖRTER!**
             - Muss das Problem kurz benennen und ein Zitat/Beispiel enthalten.
             - Titel müssen aus Nutzersicht formuliert sein.
-
-            GUTE, KURZE BEISPIELE FÜR DIE 'detail'-BESCHREIBUNG:
-            - "Die Überschrift 'MAGILE ist das neue Agile' ist unklar."
-            - "Es fehlt ein klarer Handlungsaufruf im sichtbaren Bereich."
-            - "Der Button-Text 'Mehr erfahren' ist zu passiv."
 
             ZU PRÜFENDER HTML-CODE:
             \`\`\`html
             ${pageContent}
             \`\`\`
         `;
+        // --- ENDE: PROMPT MIT VERBESSERTER MOBILE-PRÜFUNG ---
 
         const tools = [{
             function_declarations: [{
@@ -117,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                                 required: ["title", "detail"],
                                 properties: {
                                     title: { type: "STRING", description: "Der nutzerfreundliche Titel des Problems." },
-                                    detail: { type: "STRING", description: "Die SEHR KURZE Detailbeschreibung (maximal 10 Wörter) mit Zitat." }
+                                    detail: { type: "STRING", description: "Die SEHR KURZE Detailbeschreibung (maximal 15 Wörter) mit Zitat." }
                                 }
                             }
                         }
@@ -134,7 +133,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 tools: tools,
             }),
         });
-        // --- ENDE: NEUER PROMPT FÜR PRÄGNANZ ---
 
         if (!apiResponse.ok) {
             const errorBody = await apiResponse.text();
@@ -147,7 +145,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (!functionCall || functionCall.name !== 'reportConversionKillers') {
             console.error("KI hat nicht das erwartete Werkzeug aufgerufen:", responseData);
-            // Fallback, falls die KI aus irgendeinem Grund keine Killer meldet
             if (!functionCall) {
                  const result = { isSpecialCase: true, specialNote: `Glückwunsch! Auf ${new URL(url).hostname} wurden keine gravierenden Conversion-Killer gefunden.` };
                  await kv.set(cacheKey, result, { ex: 259200 });
@@ -172,10 +169,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (totalFound < 4) {
             topKillersToShow = topKillers.slice(0, 1);
             const killerWord = totalFound === 1 ? 'potenzieller Conversion-Killer' : 'potenzielle Conversion-Killer';
-            message = `Gute Nachrichten! Auf ${new URL(url).hostname} wurde nur ${totalFound} ${killerWord} gefunden. Der wichtigste ist:`;
+            message = `Auf ${new URL(url).hostname} wurde ${totalFound} ${killerWord} gefunden:`;
         } else {
             topKillersToShow = topKillers.slice(0, 2);
-            message = `Analyse abgeschlossen. Auf ${new URL(url).hostname} wurden ${totalFound} potenzielle Conversion-Killer identifiziert. Die gravierendsten sind:`;
+            message = `Auf ${new URL(url).hostname} wurden ${totalFound} Conversion-Killer gefunden:`;
         }
         
         const finalResult = { message, topKillers: topKillersToShow, remainingKillers: Math.max(0, totalFound - topKillersToShow.length) };

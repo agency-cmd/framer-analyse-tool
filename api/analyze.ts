@@ -169,10 +169,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (totalFound < 4) {
             topKillersToShow = topKillers.slice(0, 1);
             const killerWord = totalFound === 1 ? 'potenzieller Conversion-Killer' : 'potenzielle Conversion-Killer';
-            message = `Gute Nachrichten! Auf ${new URL(url).hostname} wurde nur ${totalFound} ${killerWord} gefunden. Der wichtigste ist:`;
+            message = `Gute Nachrichten! Auf ${new URL(url).hostname} wurde nur ${totalFound} ${killerWord} gefunden:`;
         } else {
             topKillersToShow = topKillers.slice(0, 2);
-            message = `Analyse abgeschlossen. Auf ${new URL(url).hostname} wurden ${totalFound} potenzielle Conversion-Killer identifiziert. Die gravierendsten sind:`;
+            message = `Auf ${new URL(url).hostname} wurden ${totalFound} potenzielle Conversion-Killer identifiziert:`;
         }
         
         const finalResult = { message, topKillers: topKillersToShow, remainingKillers: Math.max(0, totalFound - topKillersToShow.length) };

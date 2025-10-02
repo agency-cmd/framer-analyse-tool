@@ -88,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             Rufe zwingend das Werkzeug 'reportConversionKillers' auf, um deine Ergebnisse zu übermitteln.
 
             REGELN FÜR DIE DETAILBESCHREIBUNG:
-            - **STRIKTES LIMIT: MAXIMAL 15 WÖRTER!**
+            - **STRIKTES LIMIT: MAXIMAL 10 WÖRTER!**
             - Muss das Problem kurz benennen und ein Zitat/Beispiel enthalten.
             - Titel müssen aus Nutzersicht formuliert sein.
 
@@ -116,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                                 required: ["title", "detail"],
                                 properties: {
                                     title: { type: "STRING", description: "Der nutzerfreundliche Titel des Problems." },
-                                    detail: { type: "STRING", description: "Die SEHR KURZE Detailbeschreibung (maximal 15 Wörter) mit Zitat." }
+                                    detail: { type: "STRING", description: "Die SEHR KURZE Detailbeschreibung (maximal 10 Wörter) mit Zitat." }
                                 }
                             }
                         }

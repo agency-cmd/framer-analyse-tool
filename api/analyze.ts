@@ -52,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try { new URL(url); } catch (_) { return res.status(400).json({ message: 'Das Format der URL ist ungültig.' }); }
 
     if (url.includes('luqy.studio')) {
-        return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich perfekt. 😉 Bereit für deine eigene?" });
+        return res.status(200).json({ isSpecialCase: true, specialNote: "Diese Landing Page ist offensichtlich eine 10/10. 😉 Bereit für deine eigene?" });
     }
 
     const cacheKey = `cro-analysis-v5.4:${url}`; // Version erhöht

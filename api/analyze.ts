@@ -75,7 +75,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             5.  Rufe das Werkzeug 'reportConversionKillers' auf und übergib die Ergebnisse. Fülle dabei **beide** Felder: 'allKillers' mit der kompletten Liste und 'topKillers' nur mit den zwei wichtigsten.
 
             Checkliste:
-            (Die 11 Punkte bleiben hier unverändert...)
+            1.  **Langsame Ladezeit:** Suche nach Indikatoren für eine langsame Seite (z.B. ungewöhnlich viele \`<img>\`- oder \`<script>\`-Tags).
+            2.  **Fehlende mobile Optimierung:** Ein fehlendes \`<meta name="viewport">\`-Tag ist ein starkes Warnsignal. Melde diesen Fehler aber nur, wenn du auch sonst keine Hinweise auf ein responsives Design findest (z.B. CSS-Klassen mit "mobile", "sm:", "md:", "lg:").
+            3.  **Unklare Value Proposition:** Ist der \`<h1>\`-Text vage, voller Jargon oder erklärt er keinen klaren Kundennutzen?
+            4.  **"Message Match"-Fehler:** Weicht der \`<title>\` stark von der \`<h1>\`-Botschaft ab?
+            5.  **Fehlender/Schwacher CTA:** Fehlt ein klarer, aktiver Call-to-Action Button im oberen Bereich? Sind Button-Texte passiv?
+            6.  **Offensichtliche technische Fehler:** Gibt es Hinweise auf kaputte Bilder (\`src=""\`) oder fehlerhafte Links (\`href=""\`)?
+            7.  **Fehlende Vertrauenssignale:** Fehlen Wörter wie "Kundenstimmen", "Bewertungen", "Partner" oder Kundenlogos?
+            8.  **Zu viele Ablenkungen:** Gibt es eine \`<nav>\`-Leiste mit zu vielen ablenkenden Links (mehr als 4)?
+            9.  **Komplexes Formular:** Hat ein \`<form>\`-Element mehr als 4-5 \`<input>\`-Felder?
+            10. **Schlechte Lesbarkeit:** Gibt es extrem lange Textblöcke in \`<p>\`-Tags ohne Absätze/Formatierung?
+            11. **Aufdringliche Pop-ups:** Gibt es Hinweise auf sofortige Overlays (z.B. Elemente mit Texten wie "Angebot nicht verpassen")?
 
             REGELN FÜR DIE DETAILBESCHREIBUNG:
             - **STRIKTES LIMIT: MAXIMAL 10 WÖRTER!**

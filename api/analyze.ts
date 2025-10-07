@@ -167,10 +167,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (totalFound < 4) {
             topKillersToShow = topKillers.slice(0, 1);
-            message = `Gute Nachrichten! Auf ${new URL(url).hostname} wurde nur ${totalFound} potenzieller Conversion-Killer gefunden:`;
+            message = `Auf ${new URL(url).hostname} wurde ${totalFound} potenzieller Conversion-Killer gefunden:`;
         } else {
             topKillersToShow = topKillers.slice(0, 2);
-            message = `Auf ${new URL(url).hostname} wurden ${totalFound} potenzielle Conversion-Killer identifiziert:`;
+            message = `Auf ${new URL(url).hostname} wurden ${totalFound} potenzielle Conversion-Killer gefunden:`;
         }
 
         const finalResultForUser = {

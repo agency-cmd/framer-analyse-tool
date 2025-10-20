@@ -90,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             REGELN FÜR DIE DETAILBESCHREIBUNG:
             - **STRIKTES LIMIT: MAXIMAL 10 WÖRTER!**
             - Muss das Problem kurz benennen und ein Zitat/Beispiel enthalten.
-            - Nicht zu technisch werden. Muss für Laien verständlich sein.
+            - Verzichte auf technische Begriffe wie "h1". Es muss für Laien verständlich sein.
             - Titel müssen aus Nutzersicht formuliert sein.
 
             ZU PRÜFENDER HTML-CODE:

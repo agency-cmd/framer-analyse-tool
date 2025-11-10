@@ -91,7 +91,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             - **STRIKTES LIMIT: MAXIMAL 10 WÖRTER!**
             - Muss das Problem kurz benennen und ein Zitat/Beispiel enthalten.
             - Verzichte auf technische Begriffe wie "h1" oder "href". Es muss für Laien verständlich sein.
-            - Kein Fachjargon.
             - Titel müssen aus Nutzersicht formuliert sein.
 
             ZU PRÜFENDER HTML-CODE:

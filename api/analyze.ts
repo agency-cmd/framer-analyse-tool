@@ -92,6 +92,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             - Muss das Problem kurz benennen und ein Zitat/Beispiel enthalten.
             - Verzichte auf technische Begriffe wie "h1" oder "href". Es muss für Laien verständlich sein.
             - Titel müssen aus Nutzersicht formuliert sein.
+            - Verzichte auf Feedback zum Cookie-Banner.
 
             ZU PRÜFENDER HTML-CODE:
             \`\`\`html

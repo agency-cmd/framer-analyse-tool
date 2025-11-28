@@ -10,7 +10,7 @@ const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 if (!GEMINI_API_KEY || !BROWSERLESS_API_KEY) {
     throw new Error("Erforderliche Umgebungsvariablen sind nicht gesetzt.");
 }
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`;
 
 // --- DATENERFASSUNG (BEHÄLT <HEAD> UND <BODY>) ---
 async function getCleanedPageContent(url: string): Promise<string> {

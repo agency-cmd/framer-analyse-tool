@@ -93,6 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             - Verzichte auf technische Begriffe wie "h1" oder "href". Es muss für Laien verständlich sein.
             - Titel müssen aus Nutzersicht formuliert sein.
             - Verzichte auf Feedback zum Cookie-Banner.
+            - Priorisiere deine Ausgabe in folgender Reihenfolge der Checkliste: 7., 8., 5., 10., 4., 3., 6., 9., 2., 11., 1.
 
             ZU PRÜFENDER HTML-CODE:
             \`\`\`html

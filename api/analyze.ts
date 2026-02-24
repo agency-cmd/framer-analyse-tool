@@ -65,36 +65,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const pageContent = await getCleanedPageContent(url);
 
         const prompt = `
-            Du bist ein Weltklasse Conversion-Optimierer. Deine Aufgabe ist es, den HTML-Code wie ein menschlicher Auditor zu prüfen.
+            Du bist ein Weltklasse Experte für Lead-Generierung und Converting-Funnels. Deine Aufgabe ist es, den HTML-Code wie ein menschlicher Auditor zu prüfen, der darauf spezialisiert ist, Google-Ads-Traffic ohne Reibungsverluste in gebuchte Termine zu verwandeln.
             
             DEIN PRÜFAUFTRAG:
-            1.  Prüfe den HTML-Code anhand der 11-Punkte-Checkliste.
+            1.  Prüfe den HTML-Code anhand der 14-Punkte-Checkliste auf versteckte Termin-Blocker und Reibungsverluste.
             2.  Identifiziere **ALLE** zutreffenden Probleme.
-            3.  Wähle aus allen gefundenen Problemen die **ZWEI gravierendsten** aus.
+            3.  Wähle aus allen gefundenen Problemen die **ZWEI gravierendsten** aus, die aktuell Buchungen verhindern.
             4.  Zähle die Gesamtzahl aller Probleme.
             5.  Rufe das Werkzeug 'reportConversionKillers' auf und übergib die Ergebnisse. Fülle dabei **beide** Felder: 'allKillers' mit der kompletten Liste und 'topKillers' nur mit den zwei wichtigsten.
 
-            Checkliste:
-            1.  **Langsame Ladezeit:** Suche nach Indikatoren für eine langsame Seite (z.B. ungewöhnlich viele \`<img>\`- oder \`<script>\`-Tags).
-            2.  **Fehlende mobile Optimierung:** Ein fehlendes \`<meta name="viewport">\`-Tag ist ein starkes Warnsignal. Melde diesen Fehler aber nur, wenn du auch sonst keine Hinweise auf ein responsives Design findest (z.B. CSS-Klassen mit "mobile", "sm:", "md:", "lg:").
-            3.  **Unklare Value Proposition:** Ist der \`<h1>\`-Text vage, voller Jargon oder erklärt er keinen klaren Kundennutzen?
-            4.  **"Message Match"-Fehler:** Weicht der \`<title>\` stark von der \`<h1>\`-Botschaft ab?
-            5.  **Fehlender/Schwacher CTA:** Fehlt ein klarer, aktiver Call-to-Action Button im oberen Bereich? Sind Button-Texte passiv?
-            6.  **Offensichtliche technische Fehler:** Gibt es Hinweise auf kaputte Bilder (\`src=""\`) oder fehlerhafte Links (\`href=""\`)?
-            7.  **Fehlende Vertrauenssignale:** Fehlen Wörter wie "Kundenstimmen", "Bewertungen", "Partner" oder Kundenlogos?
-            8.  **Zu viele Ablenkungen:** Gibt es eine \`<nav>\`-Leiste mit zu vielen ablenkenden Links (mehr als 4)?
-            9.  **Komplexes Formular:** Hat ein \`<form>\`-Element mehr als 4-5 \`<input>\`-Felder?
-            10. **Schlechte Lesbarkeit:** Gibt es extrem lange Textblöcke in \`<p>\`-Tags ohne Absätze/Formatierung?
-            11. **Aufdringliche Pop-ups:** Gibt es Hinweise auf sofortige Overlays (z.B. Elemente mit Texten wie "Angebot nicht verpassen")?
+            Checkliste (Fokus auf Terminbuchung & Experience):
+            1.  **Ladezeit-Bremse:** Suche nach Indikatoren für eine langsame Seite (z.B. ungewöhnlich viele `<img>`- oder `<script>`-Tags), die teuren Ad-Traffic sofort abspringen lassen.
+            2.  **Fehlende mobile Experience:** Ein fehlendes `<meta name="viewport">`-Tag ist ein Warnsignal für kaputten Mobile-Traffic. (Nur melden, wenn keine "mobile", "sm:", "md:" CSS-Klassen existieren).
+            3.  **Schwaches Angebot:** Ist der `<h1>`-Text vage? Erklärt er nicht glasklar, warum sich ein Termin für den Nutzer lohnt?
+            4.  **Ad-Message-Mismatch:** Weicht der `<title>` stark von der `<h1>`-Botschaft ab? Das zerstört das Vertrauen bei Google-Ads-Klicks.
+            5.  **Fehlender Buchungs-Fokus:** Fehlt ein klarer, aktiver "Termin buchen" oder "Gespräch vereinbaren" CTA-Button im oberen Bereich? Sind die Call-to-Actions zu passiv (z.B. nur "Mehr erfahren")?
+            6.  **Reibungsverluste (Technik):** Gibt es Hinweise auf kaputte Bilder (`src=""`) oder fehlerhafte Links (`href=""`)?
+            7.  **Fehlender Trust:** Kalt-Traffic bucht keine Termine ohne Vertrauen. Fehlen Kundenstimmen, Logos oder Bewertungen?
+            8.  **Ablenkungs-Falle (Leaks):** Gibt es eine `<nav>`-Leiste mit ablenkenden Links (Über uns, Blog, etc.)? Ein echter Funnel darf den User nicht vom Kalender wegleiten.
+            9.  **Veralteter Kontakt-Weg:** Nutzt die Seite ein kompliziertes, langes Kontaktformular (`<form>`) anstatt auf direkte Kalender-Buchungen (wie Cal.com/Calendly/zeeg) zu setzen?
+            10. **Text-Wüsten:** Gibt es extrem lange Textblöcke (`<p>`) ohne Formatierung, die mobile Nutzer abschrecken?
+            11. **Pop-up Interruption:** Gibt es sofortige Overlays, die den nahtlosen Flow zur Terminbuchung unterbrechen?
+            12. **Fehlender Ablauf (Blackbox):** Fehlt eine Sektion, die erklärt, was im oder nach dem Termin passiert? Suche nach fehlenden Wörtern wie "Schritt", "Ablauf", "Prozess" oder "So funktioniert's".
+            13. **Gesichtslose Experience:** Fehlt die persönliche Ebene für High-Ticket-Trust? Gibt es kaum Hinweise auf die handelnden Personen (Wörter wie "Ich", "Mein Team", "Gründer", "Persönlich")?
+            14. **Zu wenig Buchungs-Chancen:** Gibt es auf der gesamten Seite zu wenige Call-to-Actions? Ein starker Termin-Funnel wiederholt den CTA nach jedem wichtigen Sinnabschnitt.
 
             REGELN FÜR DIE DETAILBESCHREIBUNG:
             - **STRIKTES LIMIT: MAXIMAL 10 WÖRTER!**
             - Muss das Problem kurz benennen und ein Zitat/Beispiel enthalten.
-            - Verzichte auf technische Begriffe wie "h1" oder "href". Es muss für Laien verständlich sein.
-            - Titel müssen aus Nutzersicht formuliert sein.
+            - Verzichte auf technische Begriffe wie "h1", "nav" oder "href". Es muss für Laien verständlich sein.
+            - Titel müssen aus Nutzersicht formuliert sein (z.B. "Zu viel Ablenkung", "Keine direkte Terminbuchung", "Ablauf unklar").
             - Verzichte auf Feedback zum Cookie-Banner.
-            - Priorisiere deine Ausgabe in folgender Reihenfolge der Checkliste: 7., 8., 5., 10., 4., 3., 6., 9., 2., 11., 1.
-
+            - Priorisiere deine Ausgabe in folgender Reihenfolge der Checkliste (die schlimmsten Termin-Blocker zuerst): 8., 9., 5., 14., 12., 3., 7., 13., 4., 10., 6., 11., 2., 1.
+            
             ZU PRÜFENDER HTML-CODE:
             \`\`\`html
             ${pageContent}

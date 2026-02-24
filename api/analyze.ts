@@ -75,16 +75,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             5.  Rufe das Werkzeug 'reportConversionKillers' auf und übergib die Ergebnisse. Fülle dabei **beide** Felder: 'allKillers' mit der kompletten Liste und 'topKillers' nur mit den zwei wichtigsten.
 
             Checkliste (Fokus auf Terminbuchung & Experience):
-            1.  **Ladezeit-Bremse:** Suche nach Indikatoren für eine langsame Seite (z.B. ungewöhnlich viele `<img>`- oder `<script>`-Tags), die teuren Ad-Traffic sofort abspringen lassen.
-            2.  **Fehlende mobile Experience:** Ein fehlendes `<meta name="viewport">`-Tag ist ein Warnsignal für kaputten Mobile-Traffic. (Nur melden, wenn keine "mobile", "sm:", "md:" CSS-Klassen existieren).
-            3.  **Schwaches Angebot:** Ist der `<h1>`-Text vage? Erklärt er nicht glasklar, warum sich ein Termin für den Nutzer lohnt?
-            4.  **Ad-Message-Mismatch:** Weicht der `<title>` stark von der `<h1>`-Botschaft ab? Das zerstört das Vertrauen bei Google-Ads-Klicks.
+            1.  **Ladezeit-Bremse:** Suche nach Indikatoren für eine langsame Seite (z.B. ungewöhnlich viele \`<img>\`- oder \`<script>\`-Tags), die teuren Ad-Traffic sofort abspringen lassen.
+            2.  **Fehlende mobile Experience:** Ein fehlendes \`<meta name="viewport">\`-Tag ist ein Warnsignal für kaputten Mobile-Traffic. (Nur melden, wenn keine "mobile", "sm:", "md:" CSS-Klassen existieren).
+            3.  **Schwaches Angebot:** Ist der \`<h1>\`-Text vage? Erklärt er nicht glasklar, warum sich ein Termin für den Nutzer lohnt?
+            4.  **Ad-Message-Mismatch:** Weicht der \`<title>\` stark von der \`<h1>\`-Botschaft ab? Das zerstört das Vertrauen bei Google-Ads-Klicks.
             5.  **Fehlender Buchungs-Fokus:** Fehlt ein klarer, aktiver "Termin buchen" oder "Gespräch vereinbaren" CTA-Button im oberen Bereich? Sind die Call-to-Actions zu passiv (z.B. nur "Mehr erfahren")?
-            6.  **Reibungsverluste (Technik):** Gibt es Hinweise auf kaputte Bilder (`src=""`) oder fehlerhafte Links (`href=""`)?
+            6.  **Reibungsverluste (Technik):** Gibt es Hinweise auf kaputte Bilder (\`src=""\`) oder fehlerhafte Links (\`href=""\`)?
             7.  **Fehlender Trust:** Kalt-Traffic bucht keine Termine ohne Vertrauen. Fehlen Kundenstimmen, Logos oder Bewertungen?
-            8.  **Ablenkungs-Falle (Leaks):** Gibt es eine `<nav>`-Leiste mit ablenkenden Links (Über uns, Blog, etc.)? Ein echter Funnel darf den User nicht vom Kalender wegleiten.
-            9.  **Veralteter Kontakt-Weg:** Nutzt die Seite ein kompliziertes, langes Kontaktformular (`<form>`) anstatt auf direkte Kalender-Buchungen (wie Cal.com/Calendly/zeeg) zu setzen?
-            10. **Text-Wüsten:** Gibt es extrem lange Textblöcke (`<p>`) ohne Formatierung, die mobile Nutzer abschrecken?
+            8.  **Ablenkungs-Falle (Leaks):** Gibt es eine \`<nav>\`-Leiste mit ablenkenden Links (Über uns, Blog, etc.)? Ein echter Funnel darf den User nicht vom Kalender wegleiten.
+            9.  **Veralteter Kontakt-Weg:** Nutzt die Seite ein kompliziertes, langes Kontaktformular (\`<form>\`) anstatt auf direkte Kalender-Buchungen (wie Cal.com/Calendly/zeeg) zu setzen?
+            10. **Text-Wüsten:** Gibt es extrem lange Textblöcke (\`<p>\`) ohne Formatierung, die mobile Nutzer abschrecken?
             11. **Pop-up Interruption:** Gibt es sofortige Overlays, die den nahtlosen Flow zur Terminbuchung unterbrechen?
             12. **Fehlender Ablauf (Blackbox):** Fehlt eine Sektion, die erklärt, was im oder nach dem Termin passiert? Suche nach fehlenden Wörtern wie "Schritt", "Ablauf", "Prozess" oder "So funktioniert's".
             13. **Gesichtslose Experience:** Fehlt die persönliche Ebene für High-Ticket-Trust? Gibt es kaum Hinweise auf die handelnden Personen (Wörter wie "Ich", "Mein Team", "Gründer", "Persönlich")?

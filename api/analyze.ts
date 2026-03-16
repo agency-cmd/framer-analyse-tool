@@ -66,41 +66,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const prompt = `
             Du bist ein kompromissloser Inbound-Funnel-Architekt und UX-Experte für B2B-Leadgenerierung. Deine Aufgabe ist es, den HTML-Code wie ein menschlicher Auditor zu prüfen. Dein einziger Fokus: Warum verwandelt diese Seite teuren High-Intent-Traffic aus Google Ads nicht nahtlos in gebuchte Termine?
+            
+            DEIN PRÜFAUFTRAG:
+            1.  Prüfe den HTML-Code anhand der 12-Punkte-Checkliste auf Conversion-Killer und Termin-Blocker.
+            2.  Identifiziere **ALLE** zutreffenden Probleme.
+            3.  Wähle aus allen gefundenen Problemen die **ZWEI gravierendsten** aus, die den Termin-Flow am stärksten zerstören.
+            4.  Zähle die Gesamtzahl aller Probleme.
+            5.  Rufe das Werkzeug 'reportConversionKillers' auf und übergib die Ergebnisse. Fülle dabei **beide** Felder: 'allKillers' mit der kompletten Liste und 'topKillers' nur mit den zwei wichtigsten.
 
-DEIN PRÜFAUFTRAG:
-1. Prüfe den HTML-Code anhand der 12-Punkte-Checkliste auf Conversion-Killer und Termin-Blocker.
-2. Identifiziere ALLE zutreffenden Probleme.
-3. Wähle aus allen gefundenen Problemen die ZWEI gravierendsten aus, die den Termin-Flow am stärksten zerstören (Fokus auf Ablenkung und Kontaktwege).
-4. Zähle die Gesamtzahl aller Probleme.
-5. Rufe das Werkzeug 'reportConversionKillers' auf und übergib die Ergebnisse. Fülle dabei beide Felder: 'allKillers' mit der kompletten Liste und 'topKillers' nur mit den zwei wichtigsten.
+            Checkliste (Fokus auf Terminbuchung, UX & High-Intent-Traffic):
+            1.  **Ablenkungs-Falle (Leaks):** Gibt es eine \`<nav>\`-Leiste oder ausgehende Links? Ein echter Termin-Funnel hat keine Navigation. Der User darf nicht zum Stöbern (\"Über uns\", \"Blog\") verleitet werden.
+            2.  **Veralteter Kontakt-Weg:** Nutzt die Seite ein klassisches \`<form>\` (Kontaktformular) anstatt auf eine nahtlose, direkte Kalender-Buchung (z.B. Zeeg) zu setzen? Das kostet sofort 50% der B2B-Leads.
+            3.  **Schwaches Angebot / Ad-Message-Mismatch:** Ist die \`<h1>\` vage oder weicht vom \`<title>\` ab? Holt sie B2B-Entscheider nicht mit einem messerscharfen, sofortigen Nutzen ab?
+            4.  **Fehlender Buchungs-Fokus:** Fehlt ein klarer, aktiver \"Termin buchen\" CTA-Button im sofort sichtbaren Bereich?
+            5.  **Fehlender Ablauf (Blackbox):** Fehlt eine Sektion, die glasklar erklärt, was im oder nach dem Deep-Dive-Call passiert (Suche nach \"Schritt\", \"Ablauf\", \"So funktioniert's\")?
+            6.  **Gesichtslose Experience:** Fehlt die persönliche, authentische Ebene für High-Ticket-Trust? (Fehlen Wörter wie \"Ich\", \"Persönlich\", Gründer-Präsenz)?
+            7.  **Fehlender Trust / Social Proof:** Fehlen Kundenstimmen, Logos, Case Studies oder messbare Resultate?
+            8.  **Text-Wüsten:** Gibt es extrem lange, unstrukturierte Textblöcke (\`<p>\`), die mobile Nutzer sofort abschrecken?
+            9.  **Pop-up Interruption:** Gibt es Overlays oder Pop-ups, die den nahtlosen Flow zur Terminbuchung aggressiv unterbrechen?
+            10. **Zu wenig Buchungs-Chancen:** Gibt es auf der gesamten Seite zu wenige Call-to-Actions? Ein starker Funnel fordert nach jedem logischen Sinnabschnitt zur Buchung auf.
+            11. **Reibungsverluste (Technik):** Gibt es Hinweise auf kaputte Bilder (\`src=\"\"\`) oder fehlerhafte Links (\`href=\"\"\`)?
+            12. **Fehlende mobile Experience:** Fehlt das \`<meta name=\"viewport\">\`-Tag oder mobile CSS-Klassen (\"sm:\", \"md:\")?
 
-CHECKLISTE (Fokus auf Terminbuchung, UX & High-Intent-Traffic):
-1. **Ablenkungs-Falle (Leaks):** Gibt es eine <nav>-Leiste oder ausgehende Links? Ein echter Termin-Funnel hat keine Navigation. Der User darf nicht zum Stöbern ("Über uns", "Blog") verleitet werden.
-2. **Veralteter Kontakt-Weg:** Nutzt die Seite ein klassisches <form> (Kontaktformular) anstatt auf eine nahtlose, direkte Kalender-Buchung (z.B. Zeeg, Calendly) zu setzen? Das kostet sofort 50% der B2B-Leads.
-3. **Schwaches Angebot / Ad-Message-Mismatch:** Ist die <h1> vage oder weicht vom <title> ab? Holt sie B2B-Entscheider nicht mit einem messerscharfen, sofortigen Nutzen ab?
-4. **Fehlender Buchungs-Fokus:** Fehlt ein klarer, aktiver "Termin buchen" oder "Gespräch vereinbaren" CTA-Button im sofort sichtbaren Bereich (Above the fold)?
-5. **Fehlender Ablauf (Blackbox):** B2B-Entscheider buchen nicht blind. Fehlt eine Sektion, die glasklar erklärt, was im oder nach dem Deep-Dive-Call passiert (Suche nach "Schritt", "Ablauf", "So funktioniert's")?
-6. **Gesichtslose Experience:** Fehlt die persönliche, authentische Ebene für High-Ticket-Trust? (Fehlen Wörter wie "Ich", "Persönlich", Gründer-Präsenz)?
-7. **Fehlender Trust / Social Proof:** Kalt-Traffic bucht ohne Beweise nicht. Fehlen Kundenstimmen, Logos, Case Studies oder messbare Resultate?
-8. **Text-Wüsten:** Gibt es extrem lange, unstrukturierte Textblöcke (<p>), die mobile Nutzer sofort abschrecken und die UX zerstören?
-9. **Pop-up Interruption:** Gibt es Overlays oder Pop-ups, die den nahtlosen Flow zur Terminbuchung aggressiv unterbrechen?
-10. **Zu wenig Buchungs-Chancen:** Gibt es auf der gesamten Seite zu wenige Call-to-Actions? Ein starker Funnel fordert nach jedem logischen Sinnabschnitt zur Buchung auf.
-11. **Reibungsverluste (Technik):** Gibt es Hinweise auf kaputte Bilder (src="") oder fehlerhafte Links (href=""), die das Vertrauen killen?
-12. **Fehlende mobile Experience:** Fehlt das <meta name="viewport">-Tag oder mobile CSS-Klassen ("sm:", "md:")? Tödlich für B2B-Entscheider, die am Smartphone Ads klicken.
-
-REGELN FÜR DIE DETAILBESCHREIBUNG:
-- STRIKTES LIMIT: MAXIMAL 10 WÖRTER! (Keine Ausnahmen).
-- Muss das Problem aus Nutzersicht benennen und extrem pragmatisch sein.
-- Verzichte komplett auf technische HTML-Begriffe (kein "h1", "nav", "href"). B2B-Geschäftsführer müssen das sofort verstehen.
-- Verzichte auf Feedback zum Cookie-Banner.
-- Priorisiere deine Ausgabe in exakt dieser Reihenfolge (die schlimmsten Termin-Blocker zuerst): 1., 2., 4., 3., 5., 6., 7., 10., 8., 9., 11., 12.
-
-ZU PRÜFENDER HTML-CODE:
-
+            REGELN FÜR DIE DETAILBESCHREIBUNG:
+            - **STRIKTES LIMIT: MAXIMAL 10 WÖRTER!**
+            - Muss das Problem aus Nutzersicht benennen und extrem pragmatisch sein.
+            - Verzichte komplett auf technische HTML-Begriffe (kein \"h1\", \"nav\", \"href\").
+            - Verzichte auf Feedback zum Cookie-Banner.
+            - Priorisiere deine Ausgabe in exakt dieser Reihenfolge (die schlimmsten Termin-Blocker zuerst): 1., 2., 4., 3., 5., 6., 7., 10., 8., 9., 11., 12.
+            
+            ZU PRÜFENDER HTML-CODE:
             \`\`\`html
-
             ${pageContent}
-
             \`\`\`
 
         

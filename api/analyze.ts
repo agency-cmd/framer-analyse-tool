@@ -96,9 +96,14 @@ REGELN FÜR DIE DETAILBESCHREIBUNG:
 - Priorisiere deine Ausgabe in exakt dieser Reihenfolge (die schlimmsten Termin-Blocker zuerst): 1., 2., 4., 3., 5., 6., 7., 10., 8., 9., 11., 12.
 
 ZU PRÜFENDER HTML-CODE:
-```html
-${pageContent}
+
+            \`\`\`html
+
+            ${pageContent}
+
             \`\`\`
+
+        
         `;
 
         const tools = [{
